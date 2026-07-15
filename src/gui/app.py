@@ -55,12 +55,24 @@ class MainFrame(wx.Frame):
         sizer_inputs.Add(lbl_formato, 0, wx.ALL, 5)
         sizer_inputs.Add(self.combo_formato, 0, wx.EXPAND | wx.LEFT | wx.RIGHT | wx.BOTTOM, 5)
         
+        # --- COMPONENTE DE PASTA CUSTOMIZADO E ACESSÍVEL ---
         lbl_pasta = wx.StaticText(self.panel_inputs, label="Pasta para salvar:")
-        self.picker_pasta = wx.DirPickerCtrl(self.panel_inputs, message="Escolha onde salvar", name="Pasta de Destino")
-        if self.config["pasta"] and os.path.exists(self.config["pasta"]):
-            self.picker_pasta.SetPath(self.config["pasta"])
         sizer_inputs.Add(lbl_pasta, 0, wx.ALL, 5)
-        sizer_inputs.Add(self.picker_pasta, 0, wx.EXPAND | wx.LEFT | wx.RIGHT | wx.BOTTOM, 5)
+        
+        sizer_pasta = wx.BoxSizer(wx.HORIZONTAL)
+        
+        self.txt_pasta = wx.TextCtrl(self.panel_inputs, name="Se preferir, cole o caminho da pasta aqui")
+        if self.config["pasta"] and os.path.exists(self.config["pasta"]):
+            self.txt_pasta.SetValue(self.config["pasta"])
+            
+        self.btn_procurar = wx.Button(self.panel_inputs, label="Procurar...")
+        self.btn_procurar.Bind(wx.EVT_BUTTON, self.on_procurar)
+        
+        sizer_pasta.Add(self.txt_pasta, 1, wx.EXPAND | wx.RIGHT, 5)
+        sizer_pasta.Add(self.btn_procurar, 0, wx.ALL, 0)
+        
+        sizer_inputs.Add(sizer_pasta, 0, wx.EXPAND | wx.LEFT | wx.RIGHT | wx.BOTTOM, 5)
+        # ----------------------------------------------------
         
         self.btn_baixar = wx.Button(self.panel_inputs, label="Baixar Fanfic")
         self.btn_baixar.Bind(wx.EVT_BUTTON, self.on_baixar)
@@ -80,7 +92,6 @@ class MainFrame(wx.Frame):
         self.gauge = wx.Gauge(self.panel_download, range=100, name="Barra de Progresso Visual")
         sizer_download.Add(self.gauge, 0, wx.EXPAND | wx.ALL, 10)
         
-        # Criados como TextCtrl Somente Leitura para o NVDA ler via Tab
         self.txt_status = wx.TextCtrl(self.panel_download, value="Iniciando...", style=wx.TE_READONLY | wx.BORDER_NONE | wx.TE_CENTRE, name="Status")
         sizer_download.Add(self.txt_status, 0, wx.EXPAND | wx.ALL, 5)
         
@@ -93,34 +104,46 @@ class MainFrame(wx.Frame):
         self.panel_download.SetSizer(sizer_download)
         self.sizer_principal.Add(self.panel_download, 1, wx.EXPAND | wx.ALL, 0)
         
-        # Esconde o painel de download na inicialização
         self.panel_download.Hide()
         
         self.panel_principal.SetSizer(self.sizer_principal)
         self.Center()
         
+    def on_procurar(self, event):
+        dlg = wx.DirDialog(self, "Escolha onde salvar", style=wx.DD_DEFAULT_STYLE)
+        
+        if self.txt_pasta.GetValue() and os.path.exists(self.txt_pasta.GetValue()):
+            dlg.SetPath(self.txt_pasta.GetValue())
+            
+        if dlg.ShowModal() == wx.ID_OK:
+            self.txt_pasta.SetValue(dlg.GetPath())
+        dlg.Destroy()
+        
     def on_baixar(self, event):
         url = self.txt_url.GetValue().strip()
+        pasta = self.txt_pasta.GetValue().strip()
         
         if not url:
             wx.MessageBox("A URL da fanfic não pode estar vazia.", "Erro de Validação", wx.OK | wx.ICON_ERROR)
             self.txt_url.SetFocus()
             return
             
+        if not pasta:
+            wx.MessageBox("Por favor, selecione ou digite uma pasta de destino.", "Erro de Validação", wx.OK | wx.ICON_ERROR)
+            self.txt_pasta.SetFocus()
+            return
+            
         modo = self.radio_modo.GetStringSelection()
         formato = self.combo_formato.GetStringSelection()
-        pasta = self.picker_pasta.GetPath()
         
         salvar_config(formato, pasta)
         self.cancel_event.clear()
         
-        # Zera os contadores
         self.gauge.SetValue(0)
         self.txt_status.SetValue("Iniciando...")
         self.txt_tempo.SetValue("Tempo estimado: calculando...")
         self.txt_porcentagem.SetValue("Progresso: 0%")
         
-        # Esconde o formulário, mostra o status de download e atualiza a janela
         self.panel_inputs.Hide()
         self.panel_download.Show()
         self.panel_principal.Layout()
@@ -168,12 +191,9 @@ class MainFrame(wx.Frame):
         resp = wx.MessageBox("Deseja baixar outra fanfic?", "Continuar?", wx.YES_NO | wx.ICON_QUESTION)
         if resp == wx.YES:
             self.txt_url.Clear()
-            
-            # Esconde o painel de download, volta para o formulário
             self.panel_download.Hide()
             self.panel_inputs.Show()
             self.panel_principal.Layout()
-            
             self.txt_url.SetFocus()
         else:
             self.Close()
