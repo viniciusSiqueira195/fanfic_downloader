@@ -1,2 +1,4 @@
-wxPython 
-requests 
+wxPython
+requests
+beautifulsoup4
+reportlab
