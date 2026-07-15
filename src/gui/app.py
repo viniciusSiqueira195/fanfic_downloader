@@ -4,6 +4,7 @@ import json
 import os
 from scrapers.spirit import baixar_spirit
 from scrapers.wattpad import baixar_wattpad
+from scrapers.fanfiction_net import baixar_fanfiction_net
 
 CONFIG_FILE = "config.json"
 
@@ -17,8 +18,12 @@ def carregar_config():
     return {"formato": "PDF", "pasta": ""}
 
 def salvar_config(formato, pasta):
-    with open(CONFIG_FILE, 'w', encoding='utf-8') as f:
-        json.dump({"formato": formato, "pasta": pasta}, f)
+    try:
+        with open(CONFIG_FILE, 'w', encoding='utf-8') as f:
+            json.dump({"formato": formato, "pasta": pasta}, f)
+    except Exception as e:
+        # Vacina: Se der erro de permissão no arquivo, apenas avisa no terminal e NÃO trava o download
+        print(f"Aviso: Não foi possível salvar as preferências no config.json: {e}")
 
 class MainFrame(wx.Frame):
     def __init__(self):
@@ -170,16 +175,22 @@ class MainFrame(wx.Frame):
             wx.CallAfter(self.txt_tempo.SetValue, f"Tempo estimado: {minutos}m {segundos}s")
         
     def _processar_download(self, url, modo, formato, pasta):
-        if "spiritfanfiction" in url.lower():
-            sucesso, mensagem = baixar_spirit(url, modo)
-        elif "wattpad" in url.lower():
-            sucesso, mensagem = baixar_wattpad(url, modo, formato, pasta, self._atualizar_progresso, self.cancel_event)
-        else:
-            sucesso = False
-            mensagem = "No momento, apenas links do Spirit e Wattpad estão suportados."
+        try:
+            if "spiritfanfiction" in url.lower():
+                sucesso, mensagem = baixar_spirit(url, modo)
+            elif "wattpad" in url.lower():
+                sucesso, mensagem = baixar_wattpad(url, modo, formato, pasta, self._atualizar_progresso, self.cancel_event)
+            elif "fanfiction.net" in url.lower():
+                sucesso, mensagem = baixar_fanfiction_net(url, modo, formato, pasta, self._atualizar_progresso, self.cancel_event)
+            else:
+                sucesso = False
+                mensagem = "No momento, apenas links do Spirit, Wattpad e FanFiction.net estão suportados."
+                
+            wx.CallAfter(self._finalizar_download, sucesso, mensagem)
+        except Exception as e:
+            # Rede de segurança absoluta
+            wx.CallAfter(self._finalizar_download, False, f"Erro Crítico na Thread:\n{str(e)}")
             
-        wx.CallAfter(self._finalizar_download, sucesso, mensagem)
-        
     def _finalizar_download(self, sucesso, mensagem):
         self.gauge.SetValue(100 if sucesso else 0)
         self.txt_status.SetValue("Concluído!" if sucesso else "Erro/Cancelado")
