@@ -2,6 +2,7 @@ import requests
 from bs4 import BeautifulSoup
 from converters.to_txt import salvar_txt
 from converters.to_pdf import salvar_pdf
+from converters.to_epub import salvar_epub
 import time
 
 def extrair_texto(url, headers):
@@ -81,6 +82,9 @@ def baixar_wattpad(url, modo, formato, pasta, progress_cb=None, cancel_event=Non
             return True, f"Download concluído!\nArquivo salvo em:\n{caminho}"
         elif formato == "PDF":
             caminho = salvar_pdf(titulo, texto_final, pasta)
+            return True, f"Download concluído!\nArquivo salvo em:\n{caminho}"
+        elif formato == "EPUB":
+            caminho = salvar_epub(titulo, texto_final, pasta)
             return True, f"Download concluído!\nArquivo salvo em:\n{caminho}"
         else:
             return False, f"O formato {formato} ainda será implementado."
