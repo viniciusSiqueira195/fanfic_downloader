@@ -1,7 +1,11 @@
 import os
 import unicodedata
+from converters.normalizacao import normalizar
 
 def salvar_txt(titulo, texto, pasta_destino):
+    titulo = normalizar(titulo)
+    texto = normalizar(texto)
+
     titulo_limpo = titulo.split(' - ')[0]
     titulo_limpo = unicodedata.normalize('NFKD', titulo_limpo).encode('ascii', 'ignore').decode('utf-8')
     
