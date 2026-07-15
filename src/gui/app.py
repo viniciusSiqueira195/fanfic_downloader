@@ -22,8 +22,8 @@ def salvar_config(formato, pasta):
         with open(CONFIG_FILE, 'w', encoding='utf-8') as f:
             json.dump({"formato": formato, "pasta": pasta}, f)
     except Exception as e:
-        # Vacina: Se der erro de permissão no arquivo, apenas avisa no terminal e NÃO trava o download
-        print(f"Aviso: Não foi possível salvar as preferências no config.json: {e}")
+        mensagem = f"Não foi possível salvar suas preferências para a próxima vez, mas o download vai continuar normalmente!\n\nDetalhe técnico: {str(e)}"
+        wx.MessageBox(mensagem, "Aviso de Configuração", wx.OK | wx.ICON_WARNING)
 
 class MainFrame(wx.Frame):
     def __init__(self):
@@ -188,7 +188,6 @@ class MainFrame(wx.Frame):
                 
             wx.CallAfter(self._finalizar_download, sucesso, mensagem)
         except Exception as e:
-            # Rede de segurança absoluta
             wx.CallAfter(self._finalizar_download, False, f"Erro Crítico na Thread:\n{str(e)}")
             
     def _finalizar_download(self, sucesso, mensagem):
