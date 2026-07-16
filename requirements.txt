@@ -1,4 +1,5 @@
 wxPython
 requests
 beautifulsoup4
+EbookLib
 reportlab
