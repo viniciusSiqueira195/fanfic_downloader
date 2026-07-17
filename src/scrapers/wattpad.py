@@ -1,9 +1,55 @@
 import requests
+import json
+import time
+from urllib.parse import urljoin
 from bs4 import BeautifulSoup
 from converters.to_txt import salvar_txt
 from converters.to_pdf import salvar_pdf
 from converters.to_epub import salvar_epub
-import time
+
+def _conteudo_meta(soup, **atributos):
+    elemento = soup.find('meta', attrs=atributos)
+    return elemento.get('content', '').strip() if elemento else ''
+
+def _dados_estruturados(soup):
+    for elemento in soup.find_all('script', type='application/ld+json'):
+        try:
+            dados = json.loads(elemento.string or '')
+        except (TypeError, json.JSONDecodeError):
+            continue
+
+        itens = dados if isinstance(dados, list) else [dados]
+        for item in itens:
+            if isinstance(item, dict):
+                yield item
+
+def extrair_metadados(soup, url):
+    titulo = _conteudo_meta(soup, property='og:title')
+    descricao = _conteudo_meta(soup, property='og:description') or _conteudo_meta(soup, name='description')
+    autor = (
+        _conteudo_meta(soup, name='author')
+        or _conteudo_meta(soup, property='books:author')
+        or _conteudo_meta(soup, name='twitter:creator')
+    )
+    capa_url = _conteudo_meta(soup, property='og:image') or _conteudo_meta(soup, name='twitter:image')
+
+    for dados in _dados_estruturados(soup):
+        titulo = titulo or str(dados.get('name', '')).strip()
+        descricao = descricao or str(dados.get('description', '')).strip()
+        capa_url = capa_url or str(dados.get('image', '')).strip()
+        dados_autor = dados.get('author')
+        if not autor and isinstance(dados_autor, dict):
+            autor = str(dados_autor.get('name', '')).strip()
+
+    if not titulo:
+        titulo = soup.title.string.strip() if soup.title and soup.title.string else "Titulo Desconhecido"
+
+    return titulo, {
+        'autor': autor,
+        'descricao': descricao,
+        'origem': url,
+        'capa_url': capa_url,
+    }
 
 def extrair_texto(url, headers):
     response = requests.get(url, headers=headers)
