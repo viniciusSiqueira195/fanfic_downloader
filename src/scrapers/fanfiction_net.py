@@ -3,10 +3,11 @@ import zipfile
 import io
 import os
 from bs4 import BeautifulSoup
+from converters.to_pdf import salvar_pdf  # <-- Importamos o seu conversor de PDF aqui!
 
 def extrair_texto_de_epub(epub_bytes):
     # O FicHub entrega um arquivo EPUB (que nada mais é que um ZIP cheio de HTMLs).
-    # Como QA de acessibilidade, sabemos que pra ler em TXT precisamos extrair só o texto puro.
+    # Como QA de acessibilidade, sabemos que pra ler em TXT/PDF precisamos extrair só o texto puro.
     texto_completo = ""
     with zipfile.ZipFile(io.BytesIO(epub_bytes)) as z:
         # Pegamos todos os arquivos que são as páginas da história
@@ -75,6 +76,12 @@ def baixar_fanfiction_net(url, modo, formato, pasta, progress_cb=None, cancel_ev
             with open(caminho_final, 'w', encoding='utf-8') as f:
                 f.write(texto)
             return True, f"Obra convertida para TXT com sucesso!{aviso_extra}\nSalvo em:\n{caminho_final}"
+            
+        elif formato == "PDF":
+            # Extraímos o texto do EPUB primeiro e mandamos para o conversor PDF
+            texto = extrair_texto_de_epub(req_epub.content)
+            caminho_final = salvar_pdf(nome_arquivo_base, texto, pasta)
+            return True, f"Obra convertida para PDF com sucesso!{aviso_extra}\nSalvo em:\n{caminho_final}"
             
         else:
             return False, f"Formato {formato} ainda não configurado para o FanFiction.net."

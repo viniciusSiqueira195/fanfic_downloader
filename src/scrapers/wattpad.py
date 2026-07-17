@@ -1,6 +1,7 @@
 import requests
 import json
 import time
+import re
 from urllib.parse import urljoin
 from bs4 import BeautifulSoup
 from converters.to_txt import salvar_txt
@@ -79,18 +80,36 @@ def baixar_wattpad(url, modo, formato, pasta, progress_cb=None, cancel_event=Non
             if progress_cb: progress_cb(50, "Extraindo texto do capítulo...", -1)
             texto_final = extrair_texto(url, headers)
         else:
-            toc = soup.find(class_="table-of-contents")
-            if not toc:
-                return False, "Para Obra Completa, cole o link da página inicial da história."
-            
-            links = toc.find_all('a')
             urls_capitulos = []
-            for a in links:
-                href = a.get('href')
-                if href:
-                    if not href.startswith('http'):
-                        href = "https://www.wattpad.com" + href
-                    urls_capitulos.append(href)
+            
+            # SOLUÇÃO DEFINITIVA: Bypass do HTML sujo usando a API do Wattpad
+            if "/story/" in url:
+                if progress_cb: progress_cb(10, "Extraindo lista de capítulos limpa via API...", -1)
+                match = re.search(r'/story/(\d+)', url)
+                if match:
+                    story_id = match.group(1)
+                    # A API entrega os dados puros, ignorando tags e layout visual
+                    api_url = f"https://www.wattpad.com/api/v3/stories/{story_id}"
+                    res_api = requests.get(api_url, headers=headers)
+                    if res_api.status_code == 200:
+                        dados = res_api.json()
+                        for part in dados.get("parts", []):
+                            if "id" in part:
+                                urls_capitulos.append(f"https://www.wattpad.com/{part['id']}")
+            
+            # Se a URL não tiver /story/ (se for link de capítulo), usa o método HTML antigo
+            if not urls_capitulos:
+                toc = soup.find(class_="table-of-contents")
+                if not toc:
+                    return False, "Para Obra Completa, cole o link da página inicial da história ou de um capítulo."
+                
+                links = toc.find_all('a')
+                for a in links:
+                    href = a.get('href')
+                    if href:
+                        if not href.startswith('http'):
+                            href = "https://www.wattpad.com" + href
+                        urls_capitulos.append(href)
             
             total = len(urls_capitulos)
             if total == 0:

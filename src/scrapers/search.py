@@ -1,5 +1,4 @@
 import requests
-import re
 from bs4 import BeautifulSoup
 from urllib.parse import quote_plus, unquote
 
@@ -46,13 +45,8 @@ def buscar_fanfics_wattpad(termo, limite=10):
         if not url:
             continue
 
-        # CORREÇÃO DEFINITIVA: O scanner (re.search) procura os números do ID na URL.
-        # Se achar, ele monta a URL contendo EXATAMENTE só o ID, igual o seu baixador precisa.
-        match_id = re.search(r'/(\d+)', url)
-        if match_id:
-            url = f"https://www.wattpad.com/{match_id.group(1)}"
-        else:
-            url = _normalizar_url(url, "https://www.wattpad.com")
+        # Aqui voltamos ao padrão original: manda a URL normal e o downloader se vira
+        url = _normalizar_url(url, "https://www.wattpad.com")
 
         resultados.append(
             {
