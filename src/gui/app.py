@@ -6,8 +6,8 @@ import requests
 from scrapers.spirit import baixar_spirit
 from scrapers.wattpad import baixar_wattpad
 from scrapers.fanfiction_net import baixar_fanfiction_net
-from scrapers.plusfiction import baixar_plusfiction
-from scrapers.search import buscar_fanfics_wattpad, buscar_fanfics_spirit, buscar_fanfics_fanfiction_net, buscar_fanfics_plusfiction, buscar_fanfics_todas_fontes
+from updater import baixar_e_aplicar_atualizacao, reiniciar_aplicativo, verificar_atualizacao
+from version import APP_VERSION
 
 CONFIG_FILE = "config.json"
 
@@ -15,25 +15,32 @@ def carregar_config():
     if os.path.exists(CONFIG_FILE):
         try:
             with open(CONFIG_FILE, 'r', encoding='utf-8') as f:
-                return json.load(f)
+                config = json.load(f)
+                if "verificar_atualizacoes" not in config:
+                    config["verificar_atualizacoes"] = False
+                return config
         except:
             pass
-    return {"formato": "PDF", "pasta": ""}
+    return {"formato": "PDF", "pasta": "", "verificar_atualizacoes": False}
 
-def salvar_config(formato, pasta):
+def salvar_config(formato, pasta, verificar_atualizacoes):
     try:
         with open(CONFIG_FILE, 'w', encoding='utf-8') as f:
-            json.dump({"formato": formato, "pasta": pasta}, f)
+            json.dump(
+                {"formato": formato, "pasta": pasta, "verificar_atualizacoes": verificar_atualizacoes},
+                f,
+            )
     except Exception as e:
         mensagem = f"Não foi possível salvar suas preferências para a próxima vez, mas o download vai continuar normalmente!\n\nDetalhe técnico: {str(e)}"
         wx.MessageBox(mensagem, "Aviso de Configuração", wx.OK | wx.ICON_WARNING)
 
 class MainFrame(wx.Frame):
     def __init__(self):
-        super().__init__(parent=None, title="Fanfic Downloader", size=(500, 450))
+        super().__init__(parent=None, title=f"Fanfic Downloader v{APP_VERSION}", size=(500, 500))
         
         self.config = carregar_config()
         self.cancel_event = threading.Event()
+        self._update_busy = False
         
         self.panel_principal = wx.Panel(self)
         self.sizer_principal = wx.BoxSizer(wx.VERTICAL)
@@ -77,6 +84,14 @@ class MainFrame(wx.Frame):
             
         sizer_inputs.Add(lbl_formato, 0, wx.ALL, 5)
         sizer_inputs.Add(self.combo_formato, 0, wx.EXPAND | wx.LEFT | wx.RIGHT | wx.BOTTOM, 5)
+
+        self.chk_verificar_atualizacoes = wx.CheckBox(
+            self.panel_inputs,
+            label="Verificar atualizações automaticamente ao iniciar",
+        )
+        self.chk_verificar_atualizacoes.SetValue(bool(self.config.get("verificar_atualizacoes", False)))
+        self.chk_verificar_atualizacoes.Bind(wx.EVT_CHECKBOX, self.on_alterar_preferencia_atualizacao)
+        sizer_inputs.Add(self.chk_verificar_atualizacoes, 0, wx.ALL, 5)
         
         # --- COMPONENTE DE PASTA CUSTOMIZADO E ACESSÍVEL ---
         lbl_pasta = wx.StaticText(self.panel_inputs, label="Pasta para salvar:")
@@ -100,6 +115,10 @@ class MainFrame(wx.Frame):
         self.btn_baixar = wx.Button(self.panel_inputs, label="Baixar Fanfic")
         self.btn_baixar.Bind(wx.EVT_BUTTON, self.on_baixar)
         sizer_inputs.Add(self.btn_baixar, 0, wx.ALL | wx.CENTER, 15)
+
+        self.btn_atualizar = wx.Button(self.panel_inputs, label="Verificar atualização")
+        self.btn_atualizar.Bind(wx.EVT_BUTTON, self.on_verificar_atualizacao)
+        sizer_inputs.Add(self.btn_atualizar, 0, wx.ALL | wx.CENTER, 5)
         
         self.panel_inputs.SetSizer(sizer_inputs)
         self.sizer_principal.Add(self.panel_inputs, 1, wx.EXPAND | wx.ALL, 0)
@@ -131,6 +150,9 @@ class MainFrame(wx.Frame):
         
         self.panel_principal.SetSizer(self.sizer_principal)
         self.Center()
+
+        if self.chk_verificar_atualizacoes.GetValue():
+            wx.CallAfter(self.on_verificar_atualizacao, None)
         
     def on_procurar(self, event):
         dlg = wx.DirDialog(self, "Escolha onde salvar", style=wx.DD_DEFAULT_STYLE)
@@ -141,6 +163,30 @@ class MainFrame(wx.Frame):
         if dlg.ShowModal() == wx.ID_OK:
             self.txt_pasta.SetValue(dlg.GetPath())
         dlg.Destroy()
+
+    def _salvar_preferencias(self):
+        salvar_config(
+            self.combo_formato.GetStringSelection(),
+            self.txt_pasta.GetValue().strip(),
+            self.chk_verificar_atualizacoes.GetValue(),
+        )
+
+    def on_alterar_preferencia_atualizacao(self, event):
+        self._salvar_preferencias()
+        
+    def _mostrar_painel_download(self, status, tempo, porcentagem, botao_cancelar_ativo, texto_botao_cancelar):
+        self.gauge.SetValue(0)
+        self.txt_status.SetValue(status)
+        self.txt_tempo.SetValue(tempo)
+        self.txt_porcentagem.SetValue(porcentagem)
+        self.btn_cancelar.SetLabel(texto_botao_cancelar)
+        if botao_cancelar_ativo:
+            self.btn_cancelar.Enable()
+        else:
+            self.btn_cancelar.Disable()
+        self.panel_inputs.Hide()
+        self.panel_download.Show()
+        self.panel_principal.Layout()
         
     def on_baixar(self, event):
         url = self.txt_url.GetValue().strip()
@@ -159,25 +205,115 @@ class MainFrame(wx.Frame):
         modo = self.radio_modo.GetStringSelection()
         formato = self.combo_formato.GetStringSelection()
         
-        salvar_config(formato, pasta)
+        salvar_config(formato, pasta, self.chk_verificar_atualizacoes.GetValue())
         self.cancel_event.clear()
-        
-        self.gauge.SetValue(0)
-        self.txt_status.SetValue("Iniciando...")
-        self.txt_tempo.SetValue("Tempo estimado: calculando...")
-        self.txt_porcentagem.SetValue("Progresso: 0%")
-        
-        self.panel_inputs.Hide()
-        self.panel_download.Show()
-        self.panel_principal.Layout()
-        
-        self.btn_cancelar.Enable()
+
+        self._mostrar_painel_download(
+            "Iniciando...",
+            "Tempo estimado: calculando...",
+            "Progresso: 0%",
+            True,
+            "Cancelar Download",
+        )
         self.btn_cancelar.SetFocus()
         
         thread = threading.Thread(target=self._processar_download, args=(url, modo, formato, pasta))
         thread.daemon = True
         thread.start()
 
+<<<<<<< HEAD
+    def on_verificar_atualizacao(self, event):
+        if self._update_busy:
+            return
+
+        self._update_busy = True
+        self.btn_atualizar.Disable()
+        self.btn_atualizar.SetLabel("Verificando...")
+        self.txt_status.SetValue("Verificando atualização...")
+
+        thread = threading.Thread(target=self._verificar_atualizacao, daemon=True)
+        thread.start()
+
+    def _verificar_atualizacao(self):
+        try:
+            atualizacao = verificar_atualizacao()
+            wx.CallAfter(self._processar_verificacao_atualizacao, atualizacao)
+        except Exception as e:
+            wx.CallAfter(self._falha_verificacao_atualizacao, str(e))
+
+    def _falha_verificacao_atualizacao(self, mensagem):
+        self._update_busy = False
+        self.btn_atualizar.Enable()
+        self.btn_atualizar.SetLabel("Verificar atualização")
+        wx.MessageBox(
+            f"Não foi possível verificar novas releases.\n\nDetalhe técnico: {mensagem}",
+            "Atualização",
+            wx.OK | wx.ICON_ERROR,
+        )
+
+    def _processar_verificacao_atualizacao(self, atualizacao):
+        self._update_busy = False
+        self.btn_atualizar.Enable()
+        self.btn_atualizar.SetLabel("Verificar atualização")
+
+        if atualizacao is None:
+            wx.MessageBox(
+                f"Você já está na versão {APP_VERSION}.",
+                "Atualização",
+                wx.OK | wx.ICON_INFORMATION,
+            )
+            return
+
+        resposta = wx.MessageBox(
+            f"Nova versão encontrada: {atualizacao.latest_version}\n\nDeseja baixar e aplicar agora?",
+            "Atualização disponível",
+            wx.YES_NO | wx.ICON_QUESTION,
+        )
+        if resposta == wx.YES:
+            self._iniciar_atualizacao(atualizacao)
+
+    def _iniciar_atualizacao(self, atualizacao):
+        self._mostrar_painel_download(
+            "Preparando atualização...",
+            "Tempo estimado: calculando...",
+            "Progresso: 0%",
+            False,
+            "Atualizando...",
+        )
+
+        thread = threading.Thread(target=self._executar_atualizacao, args=(atualizacao,), daemon=True)
+        thread.start()
+
+    def _atualizar_progresso_atualizacao(self, porcentagem, mensagem, tempo_restante):
+        self._atualizar_progresso(porcentagem, mensagem, tempo_restante)
+
+    def _executar_atualizacao(self, atualizacao):
+        try:
+            restart_command = baixar_e_aplicar_atualizacao(atualizacao, self._atualizar_progresso_atualizacao)
+            wx.CallAfter(self._finalizar_atualizacao, restart_command)
+        except Exception as e:
+            wx.CallAfter(self._finalizar_atualizacao_com_erro, str(e))
+
+    def _finalizar_atualizacao(self, restart_command):
+        self.txt_status.SetValue("Atualização concluída")
+        self.txt_tempo.SetValue("Tempo estimado: --")
+        self.txt_porcentagem.SetValue("Progresso: 100%")
+        reiniciar_aplicativo(restart_command)
+        self.Close()
+
+    def _finalizar_atualizacao_com_erro(self, mensagem):
+        self.panel_download.Hide()
+        self.panel_inputs.Show()
+        self.panel_principal.Layout()
+        self._update_busy = False
+        self.btn_atualizar.Enable()
+        self.btn_atualizar.SetLabel("Verificar atualização")
+        wx.MessageBox(
+            f"Não foi possível aplicar a atualização.\n\nDetalhe técnico: {mensagem}",
+            "Atualização",
+            wx.OK | wx.ICON_ERROR,
+        )
+=======
     def on_pesquisar(self, event):
         termo = self.txt_busca.GetValue().strip()
         site = self.combo_site_busca.GetStringSelection()
@@ -223,6 +359,7 @@ class MainFrame(wx.Frame):
             self.txt_url.SetFocus()
 
         dlg.Destroy()
+>>>>>>> main
         
     def on_cancelar(self, event):
         self.cancel_event.set()
