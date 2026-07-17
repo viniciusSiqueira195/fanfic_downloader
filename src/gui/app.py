@@ -2,9 +2,12 @@ import wx
 import threading
 import json
 import os
+import requests
 from scrapers.spirit import baixar_spirit
 from scrapers.wattpad import baixar_wattpad
 from scrapers.fanfiction_net import baixar_fanfiction_net
+from scrapers.plusfiction import baixar_plusfiction
+from scrapers.search import buscar_fanfics_wattpad, buscar_fanfics_spirit, buscar_fanfics_fanfiction_net, buscar_fanfics_plusfiction, buscar_fanfics_todas_fontes
 
 CONFIG_FILE = "config.json"
 
@@ -43,6 +46,21 @@ class MainFrame(wx.Frame):
         self.txt_url = wx.TextCtrl(self.panel_inputs, name="URL da Fanfic")
         sizer_inputs.Add(lbl_url, 0, wx.ALL, 5)
         sizer_inputs.Add(self.txt_url, 0, wx.EXPAND | wx.LEFT | wx.RIGHT | wx.BOTTOM, 5)
+
+        lbl_busca = wx.StaticText(self.panel_inputs, label="Ou pesquise por termo (opcional):")
+        sizer_inputs.Add(lbl_busca, 0, wx.ALL, 5)
+
+        self.combo_site_busca = wx.Choice(self.panel_inputs, choices=["Todas as fontes", "Wattpad", "Spirit", "FanFiction.net", "PlusFiction"], name="Site da Pesquisa")
+        self.combo_site_busca.SetSelection(0)
+        sizer_inputs.Add(self.combo_site_busca, 0, wx.EXPAND | wx.LEFT | wx.RIGHT | wx.BOTTOM, 5)
+
+        sizer_busca = wx.BoxSizer(wx.HORIZONTAL)
+        self.txt_busca = wx.TextCtrl(self.panel_inputs, name="Termo de pesquisa")
+        self.btn_pesquisar = wx.Button(self.panel_inputs, label="Pesquisar")
+        self.btn_pesquisar.Bind(wx.EVT_BUTTON, self.on_pesquisar)
+        sizer_busca.Add(self.txt_busca, 1, wx.EXPAND | wx.RIGHT, 5)
+        sizer_busca.Add(self.btn_pesquisar, 0, wx.ALL, 0)
+        sizer_inputs.Add(sizer_busca, 0, wx.EXPAND | wx.LEFT | wx.RIGHT | wx.BOTTOM, 5)
         
         opcoes_modo = ["Obra Completa", "Apenas este capítulo"]
         self.radio_modo = wx.RadioBox(self.panel_inputs, label="Modo de Download", choices=opcoes_modo, majorDimension=1, style=wx.RA_SPECIFY_COLS)
@@ -159,6 +177,52 @@ class MainFrame(wx.Frame):
         thread = threading.Thread(target=self._processar_download, args=(url, modo, formato, pasta))
         thread.daemon = True
         thread.start()
+
+    def on_pesquisar(self, event):
+        termo = self.txt_busca.GetValue().strip()
+        site = self.combo_site_busca.GetStringSelection()
+        if not termo:
+            wx.MessageBox("Digite um termo para pesquisar.", "Erro de Validação", wx.OK | wx.ICON_ERROR)
+            self.txt_busca.SetFocus()
+            return
+
+        wx.BeginBusyCursor()
+        try:
+            if site == "Todas as fontes":
+                resultados = buscar_fanfics_todas_fontes(termo)
+            elif site == "Wattpad":
+                resultados = buscar_fanfics_wattpad(termo)
+            elif site == "Spirit":
+                resultados = buscar_fanfics_spirit(termo)
+            elif site == "FanFiction.net":
+                resultados = buscar_fanfics_fanfiction_net(termo)
+            elif site == "PlusFiction":
+                resultados = buscar_fanfics_plusfiction(termo)
+            else:
+                raise ValueError("Site de pesquisa inválido.")
+        except requests.exceptions.RequestException as e:
+            wx.MessageBox(f"Não foi possível consultar a busca agora.\n\nDetalhe técnico: {str(e)}", "Erro na Busca", wx.OK | wx.ICON_ERROR)
+            return
+        except ValueError as e:
+            wx.MessageBox(str(e), "Erro de Validação", wx.OK | wx.ICON_ERROR)
+            return
+        finally:
+            if wx.IsBusy():
+                wx.EndBusyCursor()
+
+        if not resultados:
+            wx.MessageBox(f"Nenhum resultado encontrado para esse termo em {site}.", "Busca sem resultados", wx.OK | wx.ICON_INFORMATION)
+            return
+
+        opcoes = [f"[{item.get('origem', site)}] {item['titulo']} — por {item['autor']}" for item in resultados]
+        dlg = wx.SingleChoiceDialog(self, "Selecione uma fanfic para preencher a URL automaticamente:", "Resultados da Busca", opcoes)
+
+        if dlg.ShowModal() == wx.ID_OK:
+            selecionada = resultados[dlg.GetSelection()]
+            self.txt_url.SetValue(selecionada["url"])
+            self.txt_url.SetFocus()
+
+        dlg.Destroy()
         
     def on_cancelar(self, event):
         self.cancel_event.set()
@@ -182,9 +246,11 @@ class MainFrame(wx.Frame):
                 sucesso, mensagem = baixar_wattpad(url, modo, formato, pasta, self._atualizar_progresso, self.cancel_event)
             elif "fanfiction.net" in url.lower():
                 sucesso, mensagem = baixar_fanfiction_net(url, modo, formato, pasta, self._atualizar_progresso, self.cancel_event)
+            elif "plusfiction.com" in url.lower():
+                sucesso, mensagem = baixar_plusfiction(url, modo, formato, pasta, self._atualizar_progresso, self.cancel_event)
             else:
                 sucesso = False
-                mensagem = "No momento, apenas links do Spirit, Wattpad e FanFiction.net estão suportados."
+                mensagem = "No momento, apenas links do Spirit, Wattpad, FanFiction.net e PlusFiction estão suportados."
                 
             wx.CallAfter(self._finalizar_download, sucesso, mensagem)
         except Exception as e:
@@ -201,6 +267,7 @@ class MainFrame(wx.Frame):
         resp = wx.MessageBox("Deseja baixar outra fanfic?", "Continuar?", wx.YES_NO | wx.ICON_QUESTION)
         if resp == wx.YES:
             self.txt_url.Clear()
+            self.txt_busca.Clear()
             self.panel_download.Hide()
             self.panel_inputs.Show()
             self.panel_principal.Layout()
