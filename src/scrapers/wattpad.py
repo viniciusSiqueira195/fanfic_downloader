@@ -7,6 +7,7 @@ from bs4 import BeautifulSoup
 from converters.to_txt import salvar_txt
 from converters.to_pdf import salvar_pdf
 from converters.to_epub import salvar_epub
+from scrapers.chapter_selection import SelecaoCapitulosError, selecionar_capitulos
 
 def _conteudo_meta(soup, **atributos):
     elemento = soup.find('meta', attrs=atributos)
@@ -59,7 +60,7 @@ def extrair_texto(url, headers):
     paragrafos = soup.find_all('p')
     return "\n\n".join([p.get_text().strip() for p in paragrafos if p.get_text().strip()])
 
-def baixar_wattpad(url, modo, formato, pasta, progress_cb=None, cancel_event=None):
+def baixar_wattpad(url, modo, formato, pasta, progress_cb=None, cancel_event=None, selecao_capitulos=""):
     headers = {
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
     }
@@ -114,16 +115,25 @@ def baixar_wattpad(url, modo, formato, pasta, progress_cb=None, cancel_event=Non
             total = len(urls_capitulos)
             if total == 0:
                 return False, "Nenhum capítulo encontrado no índice."
+
+            capitulos_para_baixar = list(enumerate(urls_capitulos, start=1))
+            if modo == "Selecionar capítulos":
+                try:
+                    capitulos_para_baixar = selecionar_capitulos(urls_capitulos, selecao_capitulos)
+                except SelecaoCapitulosError as e:
+                    return False, str(e)
+
+            total = len(capitulos_para_baixar)
             
             textos = []
             inicio_tempo = time.time()
             
-            for i, link in enumerate(urls_capitulos):
+            for i, (numero_capitulo, link) in enumerate(capitulos_para_baixar):
                 if cancel_event and cancel_event.is_set():
                     return False, "Download cancelado pelo usuário."
                     
                 txt_cap = extrair_texto(link, headers)
-                textos.append(f"--- CAPITULO {i+1} ---\n\n{txt_cap}")
+                textos.append(f"--- CAPITULO {numero_capitulo} ---\n\n{txt_cap}")
                 
                 if progress_cb:
                     pct = int(((i + 1) / total) * 100)

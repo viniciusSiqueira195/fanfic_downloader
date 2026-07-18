@@ -7,6 +7,7 @@ from scrapers.spirit import baixar_spirit
 from scrapers.wattpad import baixar_wattpad
 from scrapers.fanfiction_net import baixar_fanfiction_net
 from scrapers.plusfiction import baixar_plusfiction
+from scrapers.chapter_selection import SelecaoCapitulosError, interpretar_selecao
 from scrapers.search import buscar_fanfics_wattpad, buscar_fanfics_spirit, buscar_fanfics_fanfiction_net, buscar_fanfics_plusfiction, buscar_fanfics_todas_fontes
 from updater import baixar_e_aplicar_atualizacao, reiniciar_aplicativo, verificar_atualizacao
 from version import APP_VERSION
@@ -145,9 +146,16 @@ class MainFrame(wx.Frame):
         sizer_url.Add(lbl_url, 0, wx.ALL, 5)
         sizer_url.Add(self.txt_url, 0, wx.EXPAND | wx.LEFT | wx.RIGHT | wx.BOTTOM, 5)
 
-        opcoes_modo = ["Obra Completa", "Apenas este capítulo"]
+        opcoes_modo = ["Obra Completa", "Apenas este capítulo", "Selecionar capítulos"]
         self.radio_modo = wx.RadioBox(self.panel_url, label="Modo de Download", choices=opcoes_modo, majorDimension=1, style=wx.RA_SPECIFY_COLS)
+        self.radio_modo.Bind(wx.EVT_RADIOBOX, self.on_modo_download)
         sizer_url.Add(self.radio_modo, 0, wx.ALL | wx.EXPAND, 5)
+
+        lbl_capitulos = wx.StaticText(self.panel_url, label="Capítulos para baixar (ex.: 1-5, 8, 10-12):")
+        self.txt_capitulos = wx.TextCtrl(self.panel_url, name="Capítulos para baixar")
+        self.txt_capitulos.Disable()
+        sizer_url.Add(lbl_capitulos, 0, wx.ALL, 5)
+        sizer_url.Add(self.txt_capitulos, 0, wx.EXPAND | wx.LEFT | wx.RIGHT | wx.BOTTOM, 5)
 
         lbl_formato = wx.StaticText(self.panel_url, label="Selecione o formato de saída:")
         formatos = ["PDF", "EPUB", "TXT"]
@@ -379,6 +387,12 @@ class MainFrame(wx.Frame):
             self.txt_pasta.SetValue(dlg.GetPath())
         dlg.Destroy()
 
+    def on_modo_download(self, event):
+        selecionar = self.radio_modo.GetStringSelection() == "Selecionar capítulos"
+        self.txt_capitulos.Enable(selecionar)
+        if selecionar:
+            self.txt_capitulos.SetFocus()
+
     def _salvar_preferencias(self):
         salvar_config(
             self.combo_formato.GetStringSelection(),
@@ -413,6 +427,14 @@ class MainFrame(wx.Frame):
             return
 
         modo = self.radio_modo.GetStringSelection()
+        selecao_capitulos = self.txt_capitulos.GetValue().strip()
+        if modo == "Selecionar capítulos":
+            try:
+                interpretar_selecao(selecao_capitulos)
+            except SelecaoCapitulosError as e:
+                wx.MessageBox(str(e), "Erro de Validação", wx.OK | wx.ICON_ERROR)
+                self.txt_capitulos.SetFocus()
+                return
         formato = self.combo_formato.GetStringSelection()
 
         salvar_config(formato, pasta, bool(self.config.get("verificar_atualizacoes", False)))
@@ -427,7 +449,7 @@ class MainFrame(wx.Frame):
         )
         self.btn_cancelar.SetFocus()
 
-        thread = threading.Thread(target=self._processar_download, args=(url, modo, formato, pasta))
+        thread = threading.Thread(target=self._processar_download, args=(url, modo, formato, pasta, selecao_capitulos))
         thread.daemon = True
         thread.start()
 
@@ -577,16 +599,16 @@ class MainFrame(wx.Frame):
             segundos = int(tempo_restante % 60)
             wx.CallAfter(self.txt_tempo.SetValue, f"Tempo estimado: {minutos}m {segundos}s")
 
-    def _processar_download(self, url, modo, formato, pasta):
+    def _processar_download(self, url, modo, formato, pasta, selecao_capitulos):
         try:
             if "spiritfanfiction" in url.lower():
-                sucesso, mensagem = baixar_spirit(url, modo, formato, pasta, self._atualizar_progresso, self.cancel_event)
+                sucesso, mensagem = baixar_spirit(url, modo, formato, pasta, self._atualizar_progresso, self.cancel_event, selecao_capitulos)
             elif "wattpad" in url.lower():
-                sucesso, mensagem = baixar_wattpad(url, modo, formato, pasta, self._atualizar_progresso, self.cancel_event)
+                sucesso, mensagem = baixar_wattpad(url, modo, formato, pasta, self._atualizar_progresso, self.cancel_event, selecao_capitulos)
             elif "fanfiction.net" in url.lower():
-                sucesso, mensagem = baixar_fanfiction_net(url, modo, formato, pasta, self._atualizar_progresso, self.cancel_event)
+                sucesso, mensagem = baixar_fanfiction_net(url, modo, formato, pasta, self._atualizar_progresso, self.cancel_event, selecao_capitulos)
             elif "plusfiction.com" in url.lower():
-                sucesso, mensagem = baixar_plusfiction(url, modo, formato, pasta, self._atualizar_progresso, self.cancel_event)
+                sucesso, mensagem = baixar_plusfiction(url, modo, formato, pasta, self._atualizar_progresso, self.cancel_event, selecao_capitulos)
             else:
                 sucesso = False
                 mensagem = "No momento, apenas links do Spirit, Wattpad, FanFiction.net e PlusFiction estão suportados."

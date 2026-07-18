@@ -4,6 +4,7 @@ from bs4 import BeautifulSoup
 from converters.to_txt import salvar_txt
 from converters.to_pdf import salvar_pdf
 from converters.to_epub import salvar_epub
+from scrapers.chapter_selection import SelecaoCapitulosError, selecionar_capitulos
 
 
 BASE_URL = "https://plusfiction.com"
@@ -178,7 +179,7 @@ def _extrair_texto_capitulo(url, sessao):
     return titulo_capitulo, "\n\n".join(partes).strip()
 
 
-def baixar_plusfiction(url, modo, formato, pasta, progress_cb=None, cancel_event=None):
+def baixar_plusfiction(url, modo, formato, pasta, progress_cb=None, cancel_event=None, selecao_capitulos=""):
     try:
         url_limpa = url.strip()
         if not url_limpa:
@@ -224,10 +225,17 @@ def baixar_plusfiction(url, modo, formato, pasta, progress_cb=None, cancel_event
 
             textos = []
             inicio = time.time()
-            total = len(capitulos)
+            capitulos_para_baixar = list(enumerate(capitulos, start=1))
+            if modo == "Selecionar capítulos":
+                try:
+                    capitulos_para_baixar = selecionar_capitulos(capitulos, selecao_capitulos)
+                except SelecaoCapitulosError as e:
+                    return False, str(e)
+
+            total = len(capitulos_para_baixar)
             aviso = ""
 
-            for i, cap in enumerate(capitulos):
+            for i, (numero_capitulo, cap) in enumerate(capitulos_para_baixar):
                 if cancel_event and cancel_event.is_set():
                     return False, "Download cancelado pelo usuário."
 
@@ -235,7 +243,7 @@ def baixar_plusfiction(url, modo, formato, pasta, progress_cb=None, cancel_event
                 if not texto_capitulo:
                     continue
 
-                textos.append(f"--- CAPITULO {i + 1}: {titulo_capitulo} ---\n\n{texto_capitulo}")
+                textos.append(f"--- CAPITULO {numero_capitulo}: {titulo_capitulo} ---\n\n{texto_capitulo}")
 
                 if progress_cb:
                     pct = int(((i + 1) / total) * 95)

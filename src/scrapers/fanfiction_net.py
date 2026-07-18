@@ -22,8 +22,11 @@ def extrair_texto_de_epub(epub_bytes):
             
     return texto_completo
 
-def baixar_fanfiction_net(url, modo, formato, pasta, progress_cb=None, cancel_event=None):
+def baixar_fanfiction_net(url, modo, formato, pasta, progress_cb=None, cancel_event=None, selecao_capitulos=""):
     try:
+        if modo == "Selecionar capítulos":
+            return False, "A seleção de capítulos ainda não está disponível para FanFiction.net porque a API fornece apenas a obra completa."
+
         if progress_cb: progress_cb(10, "Acionando a API do FicHub (Bypass de Cloudflare)...", -1)
         
         # Chamamos o servidor secreto que já furou o bloqueio
