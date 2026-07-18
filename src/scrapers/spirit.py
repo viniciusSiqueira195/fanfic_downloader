@@ -1,73 +1,60 @@
 import requests
 from bs4 import BeautifulSoup
 import time
-import os
+
+# Imports corretos baseados na estrutura do Edu
+from converters.to_txt import salvar_txt
+from converters.to_pdf import salvar_pdf
+from converters.to_epub import salvar_epub
 
 def baixar_spirit(url, modo, formato, pasta, callback_progresso, cancel_event):
-    # O User-Agent disfarça nosso script como se fosse um navegador comum
     headers = {
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8',
-        'Accept-Language': 'pt-BR,pt;q=0.9,en-US;q=0.8,en;q=0.7',
     }
     
     try:
         callback_progresso(5, "Conectando ao Spirit...", -1)
-        
         response = requests.get(url, headers=headers)
         
-        # Detector de Escudo: Se o Spirit ativou o Cloudflare pesado pós-manutenção
+        # Proteção contra o Cloudflare
         if response.status_code == 403:
-            return False, "O Spirit bloqueou o acesso (Proteção Anti-Robô/Cloudflare ativada). Não foi possível baixar no momento."
-            
+            return False, "O Spirit bloqueou o acesso (Cloudflare). Tente novamente mais tarde."
         response.raise_for_status()
         
         soup = BeautifulSoup(response.text, 'html.parser')
         
-        # Pegar Título Oficial
+        # Metadados principais
         titulo_bruto = soup.find('h1')
         titulo = titulo_bruto.get_text(strip=True) if titulo_bruto else "Fanfic_Spirit"
         
-        # Limpar o nome para salvar no Windows sem dar erro
-        nome_arquivo = "".join(x for x in titulo if x.isalnum() or x in " -_").strip()
-        
-        # --- Lógica de extração de capítulos ---
+        # Mapeamento de capítulos
         links_capitulos = []
         if modo == "Apenas este capítulo":
             links_capitulos.append(url)
         else:
             callback_progresso(10, "Mapeando índice de capítulos...", -1)
-            
-            # O Spirit costuma guardar a lista de capítulos em um elemento <select>
             select_caps = soup.find('select', id='capitulo') or soup.find('select', class_='form-control')
-            
             if select_caps:
                 for option in select_caps.find_all('option'):
                     link = option.get('value')
-                    if link and 'spiritfanfiction.com' in link:
-                        links_capitulos.append(link)
-                    elif link: # Link relativo
-                        links_capitulos.append("https://www.spiritfanfiction.com" + link)
-                        
-            # Fallback: se a página principal não for um capítulo, pega o primeiro capítulo visível
-            if not links_capitulos:
+                    if link:
+                        links_capitulos.append(link if 'http' in link else "https://www.spiritfanfiction.com" + link)
+            if not links_capitulos: 
                 links_capitulos.append(url)
 
         total_caps = len(links_capitulos)
-        texto_completo = f"{titulo}\n\n"
+        texto_completo = "" 
         
-        # --- Loop de Download ---
+        # Loop de Download
         for i, link in enumerate(links_capitulos):
-            # Escuta o botão cancelar
-            if cancel_event.is_set():
+            if cancel_event.is_set(): 
                 return False, "Download cancelado pelo usuário."
                 
-            porcentagem = 10 + int((i / total_caps) * 80)
+            porcentagem = 10 + int((i / total_caps) * 70)
             callback_progresso(porcentagem, f"Baixando capítulo {i+1} de {total_caps}...", -1)
             
-            # Evita baixar a mesma página 2 vezes se já for o link inicial
             if link != url:
-                time.sleep(1.5) # Respeito ao servidor para não tomar ban
+                time.sleep(1.5) # Respeito ao servidor para evitar bloqueio
                 resp_cap = requests.get(link, headers=headers)
                 if resp_cap.status_code == 403:
                     return False, "Bloqueio do Spirit detectado no meio do download."
@@ -75,29 +62,43 @@ def baixar_spirit(url, modo, formato, pasta, callback_progresso, cancel_event):
             else:
                 soup_cap = soup
                 
-            # Extrair o texto (Pega a div principal de leitura do Spirit)
-            div_texto = soup_cap.find('div', class_='texto-capitulo') or \
-                        soup_cap.find('div', class_='chapter-text') or \
-                        soup_cap.find('div', id='texto') or \
-                        soup_cap.find('div', class_='p-wrapper')
-                        
-            if div_texto:
-                texto_completo += div_texto.get_text(separator='\n\n', strip=True) + "\n\n"
-            else:
-                texto_completo += f"[Não foi possível extrair o texto do capítulo {i+1}. O layout do site pode ter mudado.]\n\n"
-
-        callback_progresso(95, "Salvando arquivo final...", -1)
-        
-        # --- Salvamento Base (Apenas TXT por enquanto para validar a extração) ---
-        caminho_arquivo = os.path.join(pasta, f"{nome_arquivo}.txt")
-        
-        with open(caminho_arquivo, 'w', encoding='utf-8') as f:
-            f.write(texto_completo)
+            # Extraindo o título do capítulo para o gerador de índices do Edu
+            titulo_cap_bruto = soup_cap.find('h2')
+            nome_capitulo = titulo_cap_bruto.get_text(strip=True) if titulo_cap_bruto else f"CAPITULO {i+1}"
             
-        callback_progresso(100, "Concluído!", 0)
-        return True, f"Fanfic salva com sucesso em formato TXT:\n{caminho_arquivo}\n\nNota: A conversão para PDF/EPUB deve ser conectada ao seu gerador padrão."
+            div_texto = soup_cap.find('div', class_='texto-capitulo') or soup_cap.find('div', id='texto') or soup_cap.find('div', class_='chapter-text')
+            
+            if div_texto:
+                # Injeta a marcação do capítulo para os metadados exatamente como no Wattpad
+                texto_completo += f"--- {nome_capitulo} ---\n\n"
+                texto_completo += div_texto.get_text(separator='\n\n', strip=True) + "\n\n\n"
+            else:
+                texto_completo += f"--- {nome_capitulo} ---\n\n[Não foi possível extrair o texto deste capítulo.]\n\n\n"
+
+        callback_progresso(85, f"Preparando conversão para {formato}...", -1)
         
+        # --- Integração dos Conversores do Edu ---
+        if formato == "TXT":
+            caminho = salvar_txt(titulo, texto_completo, pasta)
+            callback_progresso(100, "Concluído!", 0)
+            return True, f"Download concluído!\nArquivo salvo em:\n{caminho}"
+            
+        elif formato == "PDF":
+            callback_progresso(90, "Gerando PDF com índices...", -1)
+            caminho = salvar_pdf(titulo, texto_completo, pasta)
+            callback_progresso(100, "Concluído!", 0)
+            return True, f"Download concluído!\nArquivo salvo em:\n{caminho}"
+            
+        elif formato == "EPUB":
+            callback_progresso(90, "Montando EPUB com metadados...", -1)
+            caminho = salvar_epub(titulo, texto_completo, pasta)
+            callback_progresso(100, "Concluído!", 0)
+            return True, f"Download concluído!\nArquivo salvo em:\n{caminho}"
+            
+        else:
+            return False, f"O formato {formato} ainda será implementado."
+            
     except requests.exceptions.RequestException as e:
         return False, f"Erro de conexão com o Spirit:\n{str(e)}"
     except Exception as e:
-        return False, f"Erro inesperado ao processar a página:\n{str(e)}"
+        return False, f"Erro inesperado ao processar: {str(e)}"
