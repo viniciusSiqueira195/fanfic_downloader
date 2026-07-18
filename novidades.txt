@@ -1,0 +1,14 @@
+O QUE FOI IMPLEMENTADO NESTA VERSÃO:
+
+- Download de fanfics completo e funcional para: FanFiction.net, Wattpad e PlusFiction.
+- Suporte para exportação em três formatos: PDF, EPUB e TXT.
+- Sistema de busca integrado: pesquise fanfics direto pelo programa sem abrir o navegador.
+- Interface 100%  limpa e intuitiva! 
+- Sistema de atualização automática embutido.
+
+AVISO SOBRE O SPIRIT:
+O download do Spirit Fanfics foi desativado temporariamente. O site implementou um bloqueio de segurança extremo (Cloudflare) que impede acessos automatizados. Retornaremos com ele assim que uma rota alternativa for homologada.
+
+PREPARE-SE:
+Você já deve ter notado o botão "Baixar Livros" no menu. Por enquanto ele está desativado, mas fique de olho nas próximas atualizações. O motor de busca e download de livros completos já está no forno e vai transformar esse aplicativo na sua biblioteca definitiva!
+Obrigado por usar o Fanfic_Downloader! 
