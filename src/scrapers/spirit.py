@@ -6,8 +6,9 @@ import time
 from converters.to_txt import salvar_txt
 from converters.to_pdf import salvar_pdf
 from converters.to_epub import salvar_epub
+from scrapers.chapter_selection import SelecaoCapitulosError, selecionar_capitulos
 
-def baixar_spirit(url, modo, formato, pasta, callback_progresso, cancel_event):
+def baixar_spirit(url, modo, formato, pasta, callback_progresso, cancel_event, selecao_capitulos=""):
     headers = {
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
     }
@@ -42,11 +43,18 @@ def baixar_spirit(url, modo, formato, pasta, callback_progresso, cancel_event):
             if not links_capitulos: 
                 links_capitulos.append(url)
 
-        total_caps = len(links_capitulos)
+        capitulos_para_baixar = list(enumerate(links_capitulos, start=1))
+        if modo == "Selecionar capítulos":
+            try:
+                capitulos_para_baixar = selecionar_capitulos(links_capitulos, selecao_capitulos)
+            except SelecaoCapitulosError as e:
+                return False, str(e)
+
+        total_caps = len(capitulos_para_baixar)
         texto_completo = "" 
         
         # Loop de Download
-        for i, link in enumerate(links_capitulos):
+        for i, (numero_capitulo, link) in enumerate(capitulos_para_baixar):
             if cancel_event.is_set(): 
                 return False, "Download cancelado pelo usuário."
                 
@@ -64,7 +72,7 @@ def baixar_spirit(url, modo, formato, pasta, callback_progresso, cancel_event):
                 
             # Extraindo o título do capítulo para o gerador de índices do Edu
             titulo_cap_bruto = soup_cap.find('h2')
-            nome_capitulo = titulo_cap_bruto.get_text(strip=True) if titulo_cap_bruto else f"CAPITULO {i+1}"
+            nome_capitulo = titulo_cap_bruto.get_text(strip=True) if titulo_cap_bruto else f"CAPITULO {numero_capitulo}"
             
             div_texto = soup_cap.find('div', class_='texto-capitulo') or soup_cap.find('div', id='texto') or soup_cap.find('div', class_='chapter-text')
             
