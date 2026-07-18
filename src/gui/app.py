@@ -183,6 +183,35 @@ class MainFrame(wx.Frame):
 
         self.panel_url.SetSizer(sizer_url)
 
+        # --- PAINEL DE CRÉDITOS ---
+        self.panel_creditos = wx.Panel(self.panel_principal)
+        sizer_creditos = wx.BoxSizer(wx.VERTICAL)
+
+        lbl_creditos = wx.StaticText(self.panel_creditos, label="Créditos")
+        sizer_creditos.Add(lbl_creditos, 0, wx.ALL, 10)
+
+        texto_creditos = (
+            f"Fanfic Downloader v{APP_VERSION}\n"
+            "\n"
+            "Desenvolvido por:\n"
+            "\n"
+            "- Vinicius Siqueira (GitHub: viniciusSiqueira195)\n"
+            "- Gustavo Almeida Barrios (GitHub: gustavo-barrios2006)\n"
+            "- Paulo Santesso (GitHub: paulosantesso1)\n"
+            "- Eduardo Ferreira (GitHub: Ed-Fe)\n"
+            "\n"
+            "Obrigado por usar o Fanfic Downloader!"
+        )
+        self.txt_creditos = wx.TextCtrl(
+            self.panel_creditos,
+            value=texto_creditos,
+            style=wx.TE_MULTILINE | wx.TE_READONLY,
+            name="Créditos",
+        )
+        sizer_creditos.Add(self.txt_creditos, 1, wx.EXPAND | wx.LEFT | wx.RIGHT | wx.BOTTOM, 10)
+
+        self.panel_creditos.SetSizer(sizer_creditos)
+
         # --- PAINEL DE DOWNLOAD (Tela de Progresso) ---
         self.panel_download = wx.Panel(self.panel_principal)
         sizer_download = wx.BoxSizer(wx.VERTICAL)
@@ -211,6 +240,7 @@ class MainFrame(wx.Frame):
             self.panel_menu_fanfics,
             self.panel_pesquisa,
             self.panel_url,
+            self.panel_creditos,
             self.panel_download,
         ]
         for painel in self.paineis:
@@ -221,6 +251,7 @@ class MainFrame(wx.Frame):
             self.panel_menu_fanfics: self.panel_menu_principal,
             self.panel_pesquisa: self.panel_menu_fanfics,
             self.panel_url: self.panel_menu_fanfics,
+            self.panel_creditos: self.panel_menu_principal,
         }
 
         self.foco_padrao = {
@@ -228,6 +259,7 @@ class MainFrame(wx.Frame):
             self.panel_menu_fanfics: self.listbox_fanfics,
             self.panel_pesquisa: self.txt_busca,
             self.panel_url: self.txt_url,
+            self.panel_creditos: self.txt_creditos,
         }
 
         # Enter é tratado no EVT_CHAR_HOOK do frame porque o ListBox nativo
@@ -306,7 +338,7 @@ class MainFrame(wx.Frame):
         elif opcao == "Verificar atualização":
             self.on_menu_verificar_atualizacao()
         elif opcao == "Ver créditos":
-            wx.MessageBox("Função em desenvolvimento.", "Ver créditos", wx.OK | wx.ICON_INFORMATION)
+            self._mostrar_painel(self.panel_creditos)
 
     def on_menu_fanfics(self, opcao):
         if opcao == "Pesquisar":
