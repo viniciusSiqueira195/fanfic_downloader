@@ -7,7 +7,6 @@ from scrapers.spirit import baixar_spirit
 from scrapers.wattpad import baixar_wattpad
 from scrapers.fanfiction_net import baixar_fanfiction_net
 from scrapers.plusfiction import baixar_plusfiction
-from scrapers.chapter_selection import SelecaoCapitulosError, interpretar_selecao
 from scrapers.search import buscar_fanfics_wattpad, buscar_fanfics_spirit, buscar_fanfics_fanfiction_net, buscar_fanfics_plusfiction, buscar_fanfics_todas_fontes
 from updater import baixar_e_aplicar_atualizacao, reiniciar_aplicativo, verificar_atualizacao
 from version import APP_VERSION
@@ -21,16 +20,23 @@ def carregar_config():
                 config = json.load(f)
                 if "verificar_atualizacoes" not in config:
                     config["verificar_atualizacoes"] = False
+                if "ultima_versao_lida" not in config:
+                    config["ultima_versao_lida"] = ""
                 return config
         except:
             pass
-    return {"formato": "PDF", "pasta": "", "verificar_atualizacoes": False}
+    return {"formato": "PDF", "pasta": "", "verificar_atualizacoes": False, "ultima_versao_lida": ""}
 
-def salvar_config(formato, pasta, verificar_atualizacoes):
+def salvar_config(formato, pasta, verificar_atualizacoes, ultima_versao_lida=""):
     try:
         with open(CONFIG_FILE, 'w', encoding='utf-8') as f:
             json.dump(
-                {"formato": formato, "pasta": pasta, "verificar_atualizacoes": verificar_atualizacoes},
+                {
+                    "formato": formato, 
+                    "pasta": pasta, 
+                    "verificar_atualizacoes": verificar_atualizacoes,
+                    "ultima_versao_lida": ultima_versao_lida
+                },
                 f,
             )
     except Exception as e:
@@ -85,6 +91,32 @@ class ConfigFrame(wx.Frame):
         self.Close()
 
     def on_cancelar(self, event):
+        self.Close()
+
+class NovidadesDialog(wx.Dialog):
+    def __init__(self, parent, texto_novidades):
+        super().__init__(parent, title="Novidades da Versão", size=(500, 400))
+        
+        sizer = wx.BoxSizer(wx.VERTICAL)
+        
+        self.txt_novidades = wx.TextCtrl(
+            self, 
+            value=texto_novidades, 
+            style=wx.TE_MULTILINE | wx.TE_READONLY | wx.TE_DONTWRAP,
+            name="Notas de Atualização"
+        )
+        sizer.Add(self.txt_novidades, 1, wx.EXPAND | wx.ALL, 10)
+        
+        self.btn_fechar = wx.Button(self, label="Fechar")
+        self.btn_fechar.Bind(wx.EVT_BUTTON, self.on_fechar)
+        sizer.Add(self.btn_fechar, 0, wx.CENTER | wx.BOTTOM, 10)
+        
+        self.SetSizer(sizer)
+        self.CenterOnParent()
+        
+        self.txt_novidades.SetFocus()
+
+    def on_fechar(self, event):
         self.Close()
 
 class MainFrame(wx.Frame):
@@ -146,16 +178,9 @@ class MainFrame(wx.Frame):
         sizer_url.Add(lbl_url, 0, wx.ALL, 5)
         sizer_url.Add(self.txt_url, 0, wx.EXPAND | wx.LEFT | wx.RIGHT | wx.BOTTOM, 5)
 
-        opcoes_modo = ["Obra Completa", "Apenas este capítulo", "Selecionar capítulos"]
+        opcoes_modo = ["Obra Completa", "Apenas este capítulo"]
         self.radio_modo = wx.RadioBox(self.panel_url, label="Modo de Download", choices=opcoes_modo, majorDimension=1, style=wx.RA_SPECIFY_COLS)
-        self.radio_modo.Bind(wx.EVT_RADIOBOX, self.on_modo_download)
         sizer_url.Add(self.radio_modo, 0, wx.ALL | wx.EXPAND, 5)
-
-        lbl_capitulos = wx.StaticText(self.panel_url, label="Capítulos para baixar (ex.: 1-5, 8, 10-12):")
-        self.txt_capitulos = wx.TextCtrl(self.panel_url, name="Capítulos para baixar")
-        self.txt_capitulos.Disable()
-        sizer_url.Add(lbl_capitulos, 0, wx.ALL, 5)
-        sizer_url.Add(self.txt_capitulos, 0, wx.EXPAND | wx.LEFT | wx.RIGHT | wx.BOTTOM, 5)
 
         lbl_formato = wx.StaticText(self.panel_url, label="Selecione o formato de saída:")
         formatos = ["PDF", "EPUB", "TXT"]
@@ -257,7 +282,6 @@ class MainFrame(wx.Frame):
         for painel in self.paineis:
             self.sizer_principal.Add(painel, 1, wx.EXPAND | wx.ALL, 0)
 
-        # Esc leva ao painel parente; painéis fora do dicionário não respondem ao Esc
         self.parentes = {
             self.panel_menu_fanfics: self.panel_menu_principal,
             self.panel_pesquisa: self.panel_menu_fanfics,
@@ -273,8 +297,6 @@ class MainFrame(wx.Frame):
             self.panel_creditos: self.txt_creditos,
         }
 
-        # Enter é tratado no EVT_CHAR_HOOK do frame porque o ListBox nativo
-        # do Windows não recebe EVT_KEY_DOWN para essa tecla
         self.acoes_menu = {
             self.listbox_principal: self.on_menu_principal,
             self.listbox_fanfics: self.on_menu_fanfics,
@@ -287,8 +309,27 @@ class MainFrame(wx.Frame):
         self.Bind(wx.EVT_CHAR_HOOK, self.on_char_hook)
         self.Center()
 
+        # Garante que a verificação rode logo após a tela principal desenhar
+        wx.CallAfter(self.verificar_primeiro_acesso)
+
         if self.config.get("verificar_atualizacoes", False):
             wx.CallAfter(self.on_menu_verificar_atualizacao)
+
+    def verificar_primeiro_acesso(self):
+        versao_salva = self.config.get("ultima_versao_lida", "")
+        if versao_salva != APP_VERSION:
+            try:
+                with open("NOVIDADES.txt", "r", encoding="utf-8") as f:
+                    texto = f.read()
+                
+                dlg = NovidadesDialog(self, texto)
+                dlg.ShowModal()
+                dlg.Destroy()
+                
+                self.config["ultima_versao_lida"] = APP_VERSION
+                self._salvar_preferencias()
+            except FileNotFoundError:
+                pass
 
     def _criar_painel_menu(self, titulo, opcoes, ao_ativar):
         painel = wx.Panel(self.panel_principal)
@@ -387,17 +428,12 @@ class MainFrame(wx.Frame):
             self.txt_pasta.SetValue(dlg.GetPath())
         dlg.Destroy()
 
-    def on_modo_download(self, event):
-        selecionar = self.radio_modo.GetStringSelection() == "Selecionar capítulos"
-        self.txt_capitulos.Enable(selecionar)
-        if selecionar:
-            self.txt_capitulos.SetFocus()
-
     def _salvar_preferencias(self):
         salvar_config(
             self.combo_formato.GetStringSelection(),
             self.txt_pasta.GetValue().strip(),
             bool(self.config.get("verificar_atualizacoes", False)),
+            self.config.get("ultima_versao_lida", "")
         )
 
     def _mostrar_painel_download(self, status, tempo, porcentagem, botao_cancelar_ativo, texto_botao_cancelar):
@@ -427,17 +463,14 @@ class MainFrame(wx.Frame):
             return
 
         modo = self.radio_modo.GetStringSelection()
-        selecao_capitulos = self.txt_capitulos.GetValue().strip()
-        if modo == "Selecionar capítulos":
-            try:
-                interpretar_selecao(selecao_capitulos)
-            except SelecaoCapitulosError as e:
-                wx.MessageBox(str(e), "Erro de Validação", wx.OK | wx.ICON_ERROR)
-                self.txt_capitulos.SetFocus()
-                return
         formato = self.combo_formato.GetStringSelection()
 
-        salvar_config(formato, pasta, bool(self.config.get("verificar_atualizacoes", False)))
+        salvar_config(
+            formato, 
+            pasta, 
+            bool(self.config.get("verificar_atualizacoes", False)),
+            self.config.get("ultima_versao_lida", "")
+        )
         self.cancel_event.clear()
 
         self._mostrar_painel_download(
@@ -449,7 +482,7 @@ class MainFrame(wx.Frame):
         )
         self.btn_cancelar.SetFocus()
 
-        thread = threading.Thread(target=self._processar_download, args=(url, modo, formato, pasta, selecao_capitulos))
+        thread = threading.Thread(target=self._processar_download, args=(url, modo, formato, pasta))
         thread.daemon = True
         thread.start()
 
@@ -599,16 +632,16 @@ class MainFrame(wx.Frame):
             segundos = int(tempo_restante % 60)
             wx.CallAfter(self.txt_tempo.SetValue, f"Tempo estimado: {minutos}m {segundos}s")
 
-    def _processar_download(self, url, modo, formato, pasta, selecao_capitulos):
+    def _processar_download(self, url, modo, formato, pasta):
         try:
             if "spiritfanfiction" in url.lower():
-                sucesso, mensagem = baixar_spirit(url, modo, formato, pasta, self._atualizar_progresso, self.cancel_event, selecao_capitulos)
+                sucesso, mensagem = baixar_spirit(url, modo, formato, pasta, self._atualizar_progresso, self.cancel_event)
             elif "wattpad" in url.lower():
-                sucesso, mensagem = baixar_wattpad(url, modo, formato, pasta, self._atualizar_progresso, self.cancel_event, selecao_capitulos)
+                sucesso, mensagem = baixar_wattpad(url, modo, formato, pasta, self._atualizar_progresso, self.cancel_event)
             elif "fanfiction.net" in url.lower():
-                sucesso, mensagem = baixar_fanfiction_net(url, modo, formato, pasta, self._atualizar_progresso, self.cancel_event, selecao_capitulos)
+                sucesso, mensagem = baixar_fanfiction_net(url, modo, formato, pasta, self._atualizar_progresso, self.cancel_event)
             elif "plusfiction.com" in url.lower():
-                sucesso, mensagem = baixar_plusfiction(url, modo, formato, pasta, self._atualizar_progresso, self.cancel_event, selecao_capitulos)
+                sucesso, mensagem = baixar_plusfiction(url, modo, formato, pasta, self._atualizar_progresso, self.cancel_event)
             else:
                 sucesso = False
                 mensagem = "No momento, apenas links do Spirit, Wattpad, FanFiction.net e PlusFiction estão suportados."
