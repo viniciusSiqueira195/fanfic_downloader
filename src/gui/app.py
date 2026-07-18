@@ -6,6 +6,8 @@ import requests
 from scrapers.spirit import baixar_spirit
 from scrapers.wattpad import baixar_wattpad
 from scrapers.fanfiction_net import baixar_fanfiction_net
+from scrapers.plusfiction import baixar_plusfiction
+from scrapers.search import buscar_fanfics_wattpad, buscar_fanfics_spirit, buscar_fanfics_fanfiction_net, buscar_fanfics_plusfiction, buscar_fanfics_todas_fontes
 from updater import baixar_e_aplicar_atualizacao, reiniciar_aplicativo, verificar_atualizacao
 from version import APP_VERSION
 
@@ -221,7 +223,6 @@ class MainFrame(wx.Frame):
         thread.daemon = True
         thread.start()
 
-<<<<<<< HEAD
     def on_verificar_atualizacao(self, event):
         if self._update_busy:
             return
@@ -284,12 +285,9 @@ class MainFrame(wx.Frame):
         thread = threading.Thread(target=self._executar_atualizacao, args=(atualizacao,), daemon=True)
         thread.start()
 
-    def _atualizar_progresso_atualizacao(self, porcentagem, mensagem, tempo_restante):
-        self._atualizar_progresso(porcentagem, mensagem, tempo_restante)
-
     def _executar_atualizacao(self, atualizacao):
         try:
-            restart_command = baixar_e_aplicar_atualizacao(atualizacao, self._atualizar_progresso_atualizacao)
+            restart_command = baixar_e_aplicar_atualizacao(atualizacao, self._atualizar_progresso)
             wx.CallAfter(self._finalizar_atualizacao, restart_command)
         except Exception as e:
             wx.CallAfter(self._finalizar_atualizacao_com_erro, str(e))
@@ -313,7 +311,7 @@ class MainFrame(wx.Frame):
             "Atualização",
             wx.OK | wx.ICON_ERROR,
         )
-=======
+
     def on_pesquisar(self, event):
         termo = self.txt_busca.GetValue().strip()
         site = self.combo_site_busca.GetStringSelection()
@@ -359,8 +357,7 @@ class MainFrame(wx.Frame):
             self.txt_url.SetFocus()
 
         dlg.Destroy()
->>>>>>> main
-        
+
     def on_cancelar(self, event):
         self.cancel_event.set()
         self.btn_cancelar.Disable()
