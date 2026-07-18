@@ -375,7 +375,7 @@ class MainFrame(wx.Frame):
     def _processar_download(self, url, modo, formato, pasta):
         try:
             if "spiritfanfiction" in url.lower():
-                sucesso, mensagem = baixar_spirit(url, modo)
+                sucesso, mensagem = baixar_spirit(url, modo, formato, pasta, self._atualizar_progresso, self.cancel_event)
             elif "wattpad" in url.lower():
                 sucesso, mensagem = baixar_wattpad(url, modo, formato, pasta, self._atualizar_progresso, self.cancel_event)
             elif "fanfiction.net" in url.lower():
