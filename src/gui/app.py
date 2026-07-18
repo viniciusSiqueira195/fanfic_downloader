@@ -116,12 +116,15 @@ class MainFrame(wx.Frame):
         self.panel_pesquisa = wx.Panel(self.panel_principal)
         sizer_pesquisa = wx.BoxSizer(wx.VERTICAL)
 
-        lbl_busca = wx.StaticText(self.panel_pesquisa, label="Pesquise por termo:")
-        sizer_pesquisa.Add(lbl_busca, 0, wx.ALL, 5)
+        lbl_fonte_busca = wx.StaticText(self.panel_pesquisa, label="Fonte da pesquisa:")
+        sizer_pesquisa.Add(lbl_fonte_busca, 0, wx.ALL, 5)
 
         self.combo_site_busca = wx.Choice(self.panel_pesquisa, choices=["Todas as fontes", "Wattpad", "Spirit", "FanFiction.net", "PlusFiction"], name="Site da Pesquisa")
         self.combo_site_busca.SetSelection(0)
         sizer_pesquisa.Add(self.combo_site_busca, 0, wx.EXPAND | wx.LEFT | wx.RIGHT | wx.BOTTOM, 5)
+
+        lbl_busca = wx.StaticText(self.panel_pesquisa, label="Pesquise por termo:")
+        sizer_pesquisa.Add(lbl_busca, 0, wx.ALL, 5)
 
         sizer_busca = wx.BoxSizer(wx.HORIZONTAL)
         self.txt_busca = wx.TextCtrl(self.panel_pesquisa, name="Termo de pesquisa")
