@@ -216,3 +216,9 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+# Fanfic Downloader
+# Sessão autenticada do Spirit (contém cookies do usuário — nunca commitar)
+spirit_session.json
+# Navegador Camoufox empacotado junto do release (binário grande, não versionar)
+/camoufox/
