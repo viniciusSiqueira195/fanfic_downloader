@@ -220,5 +220,5 @@ __marimo__/
 # Fanfic Downloader
 # Sessão autenticada do Spirit (contém cookies do usuário — nunca commitar)
 spirit_session.json
-# Navegador Camoufox empacotado junto do release (binário grande, não versionar)
+# Navegador Camoufox empacotado baixado dinamicamente no primeiro download do spirit (binário grande, não versionar)
 /camoufox/
