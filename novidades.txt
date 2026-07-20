@@ -1,14 +1,23 @@
-O QUE FOI IMPLEMENTADO NESTA VERSÃO:
+NOVIDADES DA VERSÃO 1.1.0:
 
-- Download de fanfics completo e funcional para: FanFiction.net, Wattpad, PlusFiction e Spirit Fanfics.
+O SPIRIT ESTÁ DE VOLTA:
+O download do Spirit Fanfics voltou! O site passou a exigir login para ler capítulos, então na primeira vez o aplicativo vai pedir o usuário e a senha da sua conta do Spirit. O login é feito por um navegador seguro embutido (que resolve a verificação do Cloudflare sozinho) e apenas a sessão fica salva no seu computador — a senha nunca é armazenada. Nos próximos downloads a sessão salva é reutilizada e nada é perguntado.
+
+========================================================================
+
+NOVIDADES DA VERSÃO 1.0.1:
+
+O QUE FOI IMPLEMENTADO NESTA VERSÃO:
+- Download de fanfics completo e funcional para: FanFiction.net, Wattpad e PlusFiction.
 - Suporte para exportação em três formatos: PDF, EPUB e TXT.
 - Sistema de busca integrado: pesquise fanfics direto pelo programa sem abrir o navegador.
 - Interface 100%  limpa e intuitiva! 
 - Sistema de atualização automática embutido.
 
-O SPIRIT ESTÁ DE VOLTA:
-O download do Spirit Fanfics voltou! O site passou a exigir login para ler capítulos, então na primeira vez o aplicativo vai pedir o usuário e a senha da sua conta do Spirit. O login é feito por um navegador seguro embutido (que resolve a verificação do Cloudflare sozinho) e apenas a sessão fica salva no seu computador — a senha nunca é armazenada. Nos próximos downloads a sessão salva é reutilizada e nada é perguntado.
+AVISO SOBRE O SPIRIT:
+O download do Spirit Fanfics foi desativado temporariamente. O site implementou um bloqueio de segurança extremo (Cloudflare) que impede acessos automatizados. Retornaremos com ele assim que uma rota alternativa for homologada.
 
 PREPARE-SE:
 Você já deve ter notado o botão "Baixar Livros" no menu. Por enquanto ele está desativado, mas fique de olho nas próximas atualizações. O motor de busca e download de livros completos já está no forno e vai transformar esse aplicativo na sua biblioteca definitiva!
-Obrigado por usar o Fanfic_Downloader! 
+
+Obrigado por usar o Fanfic_Downloader!
