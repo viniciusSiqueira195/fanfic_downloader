@@ -104,44 +104,19 @@ def _exe_utilizavel(exe_path):
 
 
 def find_camoufox_exe():
-    """Localiza o binário do Camoufox: variável CAMOUFOX_EXE, pasta do app
-    (usuário final recebe o browser empacotado) ou caches de instalação
-    (ambiente de desenvolvimento). Só retorna instalações completas."""
+    """Localiza o binário do Camoufox apenas na pasta de inicialização do programa
+    (pasta do app). Não busca nos caches globais do sistema, garantindo que
+    se possa testar a instalação limpa do ponto de vista do usuário final."""
     env = os.environ.get("CAMOUFOX_EXE")
     if env and _exe_utilizavel(env):
         return env
 
-    # 1) empacotado junto do app (release) tem prioridade
+    # Busca apenas nas pastas locais/empacotadas junto do app
     for base in _app_base_dirs():
         hit = _search_dir_for_exe(base)
         if hit and _exe_utilizavel(hit):
             return hit
 
-    # 2) mecanismo OFICIAL do pacote camoufox: garante que o que foi baixado
-    #    por garantir_camoufox seja encontrado, seja qual for a pasta que o
-    #    platformdirs escolher (evita descasamento com os globs abaixo)
-    try:
-        from camoufox.pkgman import camoufox_path
-        p = camoufox_path(download_if_missing=False)
-        if p:
-            for name in _EXE_NAMES:
-                exe = Path(p) / name
-                if _exe_utilizavel(exe):
-                    return str(exe)
-    except Exception:
-        pass
-
-    la = os.environ.get("LOCALAPPDATA", "")
-    dev_patterns = [
-        os.path.join(la, "Packages", "PythonSoftwareFoundation.Python*",
-                     "LocalCache", "Local", "camoufox", "**", "camoufox.exe"),
-        os.path.join(la, "camoufox", "**", "camoufox.exe"),
-        os.path.join(os.path.expanduser("~"), ".cache", "camoufox", "**", "camoufox*"),
-    ]
-    for pat in dev_patterns:
-        for hit in sorted(glob.glob(pat, recursive=True)):
-            if _exe_utilizavel(hit):
-                return hit
     return None
 
 
