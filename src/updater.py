@@ -165,6 +165,24 @@ def _is_preserved(relative_path):
     return False
 
 
+def _substituir_arquivo(source_path, destination_path):
+    """Copia por cima do destino; se o destino estiver em uso (o próprio exe
+    em execução, no app congelado), o Windows bloqueia a escrita mas permite
+    renomear — renomeia para .old e copia o novo no lugar. O resíduo .old é
+    removido no próximo início do app (limpar_residuos_atualizacao)."""
+    try:
+        shutil.copy2(source_path, destination_path)
+    except PermissionError:
+        backup_path = destination_path.with_name(destination_path.name + ".old")
+        try:
+            if backup_path.exists():
+                backup_path.unlink()
+        except OSError:
+            pass
+        os.replace(destination_path, backup_path)
+        shutil.copy2(source_path, destination_path)
+
+
 def _copy_update_tree(source_root, target_root):
     for source_path in source_root.rglob("*"):
         if source_path.is_dir():
@@ -174,7 +192,27 @@ def _copy_update_tree(source_root, target_root):
             continue
         destination_path = target_root / relative_path
         destination_path.parent.mkdir(parents=True, exist_ok=True)
-        shutil.copy2(source_path, destination_path)
+        _substituir_arquivo(source_path, destination_path)
+
+
+def limpar_residuos_atualizacao():
+    """Apaga os arquivos .old deixados por uma atualização anterior (o exe
+    antigo renomeado, que só pode ser apagado depois que o app reinicia)."""
+    try:
+        raiz = get_application_root()
+        residuos = list(raiz.glob("*.old"))
+        # No build onedir as DLLs em uso ficam em _internal e também são
+        # renomeadas durante a atualização.
+        interno = raiz / "_internal"
+        if interno.is_dir():
+            residuos.extend(interno.rglob("*.old"))
+        for residuo in residuos:
+            try:
+                residuo.unlink()
+            except OSError:
+                pass
+    except Exception:
+        pass
 
 
 def get_application_root():

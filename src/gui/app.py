@@ -3,7 +3,7 @@ import threading
 import json
 import os
 import requests
-from scrapers.spirit import baixar_spirit
+from scrapers.spirit import baixar_spirit, tem_sessao_salva, LOGIN_NECESSARIO
 from scrapers.wattpad import baixar_wattpad
 from scrapers.fanfiction_net import baixar_fanfiction_net
 from scrapers.plusfiction import baixar_plusfiction
@@ -118,6 +118,59 @@ class NovidadesDialog(wx.Dialog):
 
     def on_fechar(self, event):
         self.Close()
+
+class SpiritLoginDialog(wx.Dialog):
+    def __init__(self, parent, motivo=""):
+        super().__init__(parent, title="Entrar no Spirit Fanfics", size=(480, 460))
+
+        sizer = wx.BoxSizer(wx.VERTICAL)
+
+        explicacao = (
+            "O Spirit Fanfics exige login para ler os capítulos.\n\n"
+            "Ao continuar, uma janela de navegador segura vai abrir na página de "
+            "login do Spirit. Conclua o login por lá: resolva a verificação "
+            "\"Confirme que é humano\" e clique em Entrar. Assim que o login for "
+            "concluído, a janela fecha sozinha e o download começa.\n\n"
+            "Você pode digitar abaixo o usuário e a senha para já deixá-los "
+            "preenchidos na janela (opcional). Nada é armazenado além da sessão "
+            "(cookies) do login neste computador; a senha nunca é salva."
+        )
+        if motivo:
+            explicacao = motivo + "\n\n" + explicacao
+
+        self.txt_explicacao = wx.TextCtrl(
+            self,
+            value=explicacao,
+            style=wx.TE_MULTILINE | wx.TE_READONLY | wx.BORDER_NONE,
+            name="Como funciona o login do Spirit",
+        )
+        sizer.Add(self.txt_explicacao, 1, wx.EXPAND | wx.ALL, 10)
+
+        lbl_usuario = wx.StaticText(self, label="Usuário do Spirit (opcional):")
+        sizer.Add(lbl_usuario, 0, wx.LEFT | wx.RIGHT, 10)
+        self.txt_usuario = wx.TextCtrl(self, name="Usuário do Spirit (opcional)")
+        sizer.Add(self.txt_usuario, 0, wx.EXPAND | wx.LEFT | wx.RIGHT | wx.BOTTOM, 10)
+
+        lbl_senha = wx.StaticText(self, label="Senha do Spirit (opcional):")
+        sizer.Add(lbl_senha, 0, wx.LEFT | wx.RIGHT, 10)
+        self.txt_senha = wx.TextCtrl(self, style=wx.TE_PASSWORD, name="Senha do Spirit (opcional)")
+        sizer.Add(self.txt_senha, 0, wx.EXPAND | wx.LEFT | wx.RIGHT | wx.BOTTOM, 10)
+
+        sizer_botoes = wx.BoxSizer(wx.HORIZONTAL)
+        self.btn_entrar = wx.Button(self, wx.ID_OK, label="Abrir janela de login")
+        self.btn_cancelar = wx.Button(self, wx.ID_CANCEL, label="Cancelar")
+        sizer_botoes.Add(self.btn_entrar, 0, wx.RIGHT, 5)
+        sizer_botoes.Add(self.btn_cancelar, 0)
+        sizer.Add(sizer_botoes, 0, wx.CENTER | wx.BOTTOM, 10)
+
+        self.btn_entrar.SetDefault()
+        self.SetSizer(sizer)
+        self.CenterOnParent()
+        self.txt_usuario.SetFocus()
+
+    def get_credenciais(self):
+        return self.txt_usuario.GetValue().strip(), self.txt_senha.GetValue()
+
 
 class MainFrame(wx.Frame):
     def __init__(self):
@@ -465,6 +518,12 @@ class MainFrame(wx.Frame):
         modo = self.radio_modo.GetStringSelection()
         formato = self.combo_formato.GetStringSelection()
 
+        credenciais = None
+        if "spiritfanfiction" in url.lower() and not tem_sessao_salva():
+            credenciais = self._pedir_credenciais_spirit()
+            if credenciais is None:
+                return
+
         salvar_config(
             formato, 
             pasta, 
@@ -482,7 +541,40 @@ class MainFrame(wx.Frame):
         )
         self.btn_cancelar.SetFocus()
 
-        thread = threading.Thread(target=self._processar_download, args=(url, modo, formato, pasta))
+        thread = threading.Thread(target=self._processar_download, args=(url, modo, formato, pasta, credenciais))
+        thread.daemon = True
+        thread.start()
+
+    def _pedir_credenciais_spirit(self, motivo=""):
+        """Mostra o diálogo do login do Spirit. As credenciais são opcionais
+        (só pré-preenchem a janela do navegador). Retorna (usuario, senha) —
+        possivelmente vazios — ou None se o usuário cancelar."""
+        dlg = SpiritLoginDialog(self, motivo)
+        resultado = dlg.ShowModal()
+        usuario, senha = dlg.get_credenciais()
+        dlg.Destroy()
+
+        if resultado != wx.ID_OK:
+            return None
+        return usuario, senha
+
+    def _retomar_download_spirit(self, url, modo, formato, pasta, motivo):
+        credenciais = self._pedir_credenciais_spirit(motivo)
+        if credenciais is None:
+            self._finalizar_download(False, "Download cancelado: é preciso entrar na sua conta do Spirit para baixar.")
+            return
+
+        self.cancel_event.clear()
+        self._mostrar_painel_download(
+            "Abrindo a janela de login do Spirit...",
+            "Tempo estimado: calculando...",
+            "Progresso: 0%",
+            True,
+            "Cancelar Download",
+        )
+        self.btn_cancelar.SetFocus()
+
+        thread = threading.Thread(target=self._processar_download, args=(url, modo, formato, pasta, credenciais))
         thread.daemon = True
         thread.start()
 
@@ -624,18 +716,30 @@ class MainFrame(wx.Frame):
         self.txt_status.SetValue("Cancelando... aguarde.")
 
     def _atualizar_progresso(self, porcentagem, mensagem, tempo_restante):
-        wx.CallAfter(self.gauge.SetValue, porcentagem)
+        # porcentagem negativa = progresso indeterminado (ex.: baixando o Camoufox)
+        if porcentagem < 0:
+            wx.CallAfter(self.gauge.Pulse)
+        else:
+            wx.CallAfter(self.gauge.SetValue, porcentagem)
+            wx.CallAfter(self.txt_porcentagem.SetValue, f"Progresso: {porcentagem}%")
         wx.CallAfter(self.txt_status.SetValue, mensagem)
-        wx.CallAfter(self.txt_porcentagem.SetValue, f"Progresso: {porcentagem}%")
         if tempo_restante >= 0:
             minutos = int(tempo_restante // 60)
             segundos = int(tempo_restante % 60)
             wx.CallAfter(self.txt_tempo.SetValue, f"Tempo estimado: {minutos}m {segundos}s")
 
-    def _processar_download(self, url, modo, formato, pasta):
+    def _processar_download(self, url, modo, formato, pasta, credenciais=None):
         try:
             if "spiritfanfiction" in url.lower():
-                sucesso, mensagem = baixar_spirit(url, modo, formato, pasta, self._atualizar_progresso, self.cancel_event)
+                usuario, senha = credenciais if credenciais else ("", "")
+                sucesso, mensagem = baixar_spirit(
+                    url, modo, formato, pasta, self._atualizar_progresso, self.cancel_event,
+                    usuario=usuario, senha=senha,
+                )
+                if not sucesso and mensagem.startswith(LOGIN_NECESSARIO):
+                    motivo = mensagem[len(LOGIN_NECESSARIO):]
+                    wx.CallAfter(self._retomar_download_spirit, url, modo, formato, pasta, motivo)
+                    return
             elif "wattpad" in url.lower():
                 sucesso, mensagem = baixar_wattpad(url, modo, formato, pasta, self._atualizar_progresso, self.cancel_event)
             elif "fanfiction.net" in url.lower():

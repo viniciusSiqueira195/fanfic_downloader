@@ -31,6 +31,8 @@ MANIFEST
 #   before PyInstaller builds the exe, so as to inject date/other infos into it.
 *.manifest
 *.spec
+# O spec oficial do build da release é versionado (usado pelo workflow de release)
+!FanficDownloader.spec
 
 # Installer logs
 pip-log.txt
@@ -216,3 +218,9 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+# Fanfic Downloader
+# Sessão autenticada do Spirit (contém cookies do usuário — nunca commitar)
+spirit_session.json
+# Navegador Camoufox empacotado baixado dinamicamente no primeiro download do spirit (binário grande, não versionar)
+/camoufox/
