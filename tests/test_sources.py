@@ -56,6 +56,27 @@ class SourcesTests(unittest.TestCase):
             "languages": "pt", "topic": "fiction",
         })
 
+    def test_gutenberg_usa_opds_oficial_quando_gutendex_expira(self):
+        import requests
+        lista = Mock()
+        lista.content = b'''<feed xmlns="http://www.w3.org/2005/Atom">
+          <entry><link rel="subsection" href="/ebooks/1.opds"/></entry>
+        </feed>'''
+        detalhe = Mock()
+        detalhe.content = b'''<feed xmlns="http://www.w3.org/2005/Atom"
+          xmlns:dcterms="http://purl.org/dc/terms/">
+          <entry><title>Livro livre</title><author><name>Autora</name></author>
+          <dcterms:language>pt</dcterms:language>
+          <content>Summary: Uma sinopse. Author: Autora</content>
+          <link rel="http://opds-spec.org/acquisition" type="application/epub+zip"
+          href="https://www.gutenberg.org/ebooks/1.epub.noimages"/></entry>
+        </feed>'''
+        self.http.get.side_effect = [requests.ReadTimeout("lento"), lista, detalhe]
+        pagina = Gutenberg(self.http).buscar_pagina("livro", "epub", 0, "pt")
+        self.assertEqual(pagina.livros[0].titulo, "Livro livre — Autora")
+        self.assertEqual(pagina.livros[0].idioma, "pt")
+        self.assertIn("catálogo alternativo", pagina.aviso)
+
     def test_visionvox_nao_e_consultado_para_outro_idioma(self):
         pagina = Visionvox(self.http).buscar_pagina("love", "epub", 0, "en")
         self.assertEqual(pagina.livros, [])

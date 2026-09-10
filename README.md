@@ -33,6 +33,9 @@ O Gutenberg reúne principalmente clássicos em vários idiomas, pesquisados pel
 [API independente Gutendex](https://gutendex.com/). EPUB e TXT são as opções mais
 comuns; um livro pode não existir no formato selecionado. A troca de fonte limpa
 os resultados anteriores e mantém o termo para uma nova pesquisa.
+Se o Gutendex não responder em dez segundos, o aplicativo consulta automaticamente
+o catálogo OPDS oficial do Project Gutenberg, sem manter a janela esperando pelo
+timeout antigo de trinta segundos.
 
 Na lista de resultados, Enter, Shift+F10, a tecla de menu ou o clique direito
 abrem as ações **Baixar**, **Ler detalhes e sinopse** e **Escolher outra pasta para
