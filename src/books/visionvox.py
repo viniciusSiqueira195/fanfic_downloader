@@ -1,5 +1,4 @@
-"""Adaptador do Visionvox com descoberta temática por metadados externos."""
-from concurrent.futures import ThreadPoolExecutor, as_completed
+"""Adaptador da pesquisa e dos livros recentes do Visionvox."""
 from pathlib import PurePosixPath
 from urllib.parse import unquote, urljoin, urlsplit, parse_qs
 
@@ -13,8 +12,6 @@ from books.urls import validar_url_download
 from scrapers.search_relevance import normalizar, termos_significativos
 
 BASE_URL = "https://visionvox.com.br/"
-OPEN_LIBRARY = "https://openlibrary.org/search.json"
-TAMANHO_DESCOBERTA = 20
 def validar_url(url):
     return validar_url_download(url, "Visionvox")
 
@@ -41,9 +38,10 @@ def extrair_livros(html):
 
 class Visionvox:
     nome = "Visionvox"
-    capacidades = CapacidadesCatalogo(frozenset(FORMATOS), frozenset({"pt"}), True)
+    capacidades = CapacidadesCatalogo(frozenset(FORMATOS), frozenset({"pt"}), False)
     def __init__(self, http=None):
         self.http = http or criar_cliente()
+        self._paginas_recentes = {}
 
     def buscar(self, termo, formato="epub", pagina=0, idioma=""):
         return self.buscar_pagina(termo, formato, pagina, idioma).livros
@@ -85,65 +83,35 @@ class Visionvox:
             raise ValueError("Formato ou página inválidos.")
         if idioma and idioma != "pt":
             return PaginaLivros([], False)
-        if not topico:
+        if topico != "visionvox:recentes":
             return PaginaLivros([], False,
-                                " Escolha um tema para descobrir livros no Visionvox.")
+                                " O Visionvox oferece descoberta pelos livros recentes.")
+        deslocamento = pagina * 50
+        parametros = {
+            "estante": "recente", "formato": formato,
+            "pagina": "Nao" if pagina == 0 else "sim",
+            "num_page": deslocamento,
+        }
+        if pagina > 0 and formato in self._paginas_recentes:
+            parametros["total_pagina"] = self._paginas_recentes[formato]
         resposta = self.http.get(
-            OPEN_LIBRARY,
-            params={
-                "q": f'subject:"{topico}" language:por',
-                "fields": "key,title,author_name,editions",
-                "lang": "pt", "limit": TAMANHO_DESCOBERTA,
-                "page": pagina + 1,
-            },
+            urljoin(BASE_URL, "biblioteca/recente.php"),
+            params=parametros,
             headers=HEADERS, timeout=(5, 20),
         )
         resposta.raise_for_status()
-        dados = resposta.json()
-        obras = dados.get("docs")
-        if not isinstance(obras, list):
-            raise ValueError("A Open Library retornou uma resposta inesperada.")
-
-        consultas = []
-        for obra in obras:
-            titulos = [obra.get("title")]
-            autores = [str(autor).strip() for autor in obra.get("author_name", []) if autor]
-            edicoes = (obra.get("editions") or {}).get("docs", [])
-            titulos.extend(edicao.get("title") for edicao in edicoes
-                           if "por" in (edicao.get("language") or []))
-            for titulo in dict.fromkeys(str(item).strip() for item in titulos if item):
-                consultas.append((titulo, autores))
-
-        encontrados = []
-        with ThreadPoolExecutor(max_workers=6, thread_name_prefix="visionvox-genero") as executor:
-            tarefas = {executor.submit(self.buscar_pagina, titulo, formato, 0, "pt"):
-                       (titulo, autores) for titulo, autores in consultas}
-            for tarefa in as_completed(tarefas):
-                titulo, autores = tarefas[tarefa]
-                try:
-                    resultado = tarefa.result()
-                except (requests.RequestException, ValueError):
-                    continue
-                esperados = set(termos_significativos(titulo))
-                sobrenomes = {normalizar(autor).split()[-1] for autor in autores
-                              if normalizar(autor).split()}
-                for livro in resultado.livros:
-                    titulo_principal = livro.titulo.rsplit(".", 1)[0].split("(", 1)[0]
-                    palavras = set(termos_significativos(titulo_principal))
-                    titulo_confere = (esperados and
-                                      len(esperados & palavras) / len(esperados) >= .7)
-                    autor_confere = not sobrenomes or bool(sobrenomes & palavras)
-                    if titulo_confere and autor_confere:
-                        encontrados.append(livro)
-
-        livros, vistos = [], set()
-        for livro in encontrados:
-            if livro.url.casefold() not in vistos:
-                vistos.add(livro.url.casefold())
-                livros.append(livro)
-        total = int(dados.get("numFound", 0))
-        tem_proxima = (pagina + 1) * TAMANHO_DESCOBERTA < total
-        return PaginaLivros(livros, tem_proxima)
+        html = resposta.content.decode("utf-8")
+        livros = [livro for livro in extrair_livros(html) if livro.formato == formato]
+        soup = BeautifulSoup(html, "html.parser")
+        total_paginas = self._paginas_recentes.get(formato, 0)
+        for link in soup.find_all("a", href=True):
+            consulta = parse_qs(urlsplit(link["href"]).query)
+            total = consulta.get("total_pagina", [""])[0]
+            if total.isdecimal():
+                total_paginas = max(total_paginas, int(total))
+        if total_paginas:
+            self._paginas_recentes[formato] = total_paginas
+        return PaginaLivros(livros, pagina + 1 < total_paginas)
 
     def obter_sinopse(self, livro):
         termo = livro.titulo.rsplit(".", 1)[0].replace("_", " ")

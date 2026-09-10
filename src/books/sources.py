@@ -112,10 +112,15 @@ class TodasFontes:
 
     def explorar_pagina(self, formato="epub", pagina=0, idioma="pt", topico="",
                         progresso=None, cancel_event=None):
-        fontes = [fonte for fonte in self.fontes
-                  if getattr(getattr(fonte, "capacidades", None), "descoberta", False)
-                  and formato in fonte.capacidades.formatos
-                  and (not idioma or idioma in fonte.capacidades.idiomas)]
+        if topico == "visionvox:recentes":
+            fontes = [fonte for fonte in self.fontes if fonte.nome == "Visionvox"
+                      and formato in fonte.capacidades.formatos
+                      and (not idioma or idioma in fonte.capacidades.idiomas)]
+        else:
+            fontes = [fonte for fonte in self.fontes
+                      if getattr(getattr(fonte, "capacidades", None), "descoberta", False)
+                      and formato in fonte.capacidades.formatos
+                      and (not idioma or idioma in fonte.capacidades.idiomas)]
         if not fontes:
             return PaginaLivros([], False, " Nenhuma fonte oferece descoberta com esses filtros.")
         respostas, erros = [], []

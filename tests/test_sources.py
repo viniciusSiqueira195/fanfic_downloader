@@ -3,7 +3,7 @@ import threading
 import time
 import unittest
 from pathlib import Path
-from unittest.mock import Mock, patch
+from unittest.mock import Mock
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
@@ -84,40 +84,20 @@ class SourcesTests(unittest.TestCase):
         self.assertEqual(pagina.livros, [])
         self.http.get.assert_not_called()
 
-    def test_visionvox_descobre_genero_e_confirma_download_por_titulo(self):
-        self.resposta.json.return_value = {
-            "numFound": 21,
-            "docs": [{
-                "title": "The Lightning Thief",
-                "author_name": ["Rick Riordan"],
-                "editions": {"docs": [{"title": "O ladrão de raios",
-                                          "language": ["por"]}]},
-            }],
-        }
+    def test_visionvox_descobre_livros_recentes_reais(self):
+        self.resposta.content = b'''<a href="https://visionvox.net/biblioteca/r/recente.epub">
+            Livro recente.epub</a>
+            <a href="recente.php?num_page=50&amp;total_pagina=2">2</a>'''
         fonte = Visionvox(self.http)
-        disponivel = Livro(
-            "Rick Riordan O Ladrão de Raios.epub",
-            "https://visionvox.net/biblioteca/r/rick.epub", "epub", "Visionvox")
-        homonimo = Livro(
-            "Outra Autora O Ladrão de Raios.epub",
-            "https://visionvox.net/biblioteca/o/outro.epub", "epub", "Visionvox")
-        apenas_serie = Livro(
-            "Rick Riordan Outro Livro (O Ladrão de Raios).epub",
-            "https://visionvox.net/biblioteca/r/serie.epub", "epub", "Visionvox")
-
-        def buscar(titulo, *_args):
-            return PaginaLivros([disponivel, homonimo, apenas_serie], False) \
-                if titulo == "O ladrão de raios" \
-                else PaginaLivros([], False)
-
-        with patch.object(fonte, "buscar_pagina", side_effect=buscar) as pesquisa:
-            pagina = fonte.explorar_pagina("epub", 0, "pt", "fantasy")
-        self.assertEqual(pagina.livros, [disponivel])
+        pagina = fonte.explorar_pagina("epub", 0, "pt", "visionvox:recentes")
+        self.assertEqual([livro.titulo for livro in pagina.livros], ["Livro recente.epub"])
         self.assertTrue(pagina.tem_proxima)
-        self.assertIn("O ladrão de raios", [chamada.args[0]
-                                             for chamada in pesquisa.call_args_list])
         parametros = self.http.get.call_args.kwargs["params"]
-        self.assertEqual(parametros["q"], 'subject:"fantasy" language:por')
+        self.assertEqual(parametros, {"estante": "recente", "formato": "epub",
+                                      "pagina": "Nao", "num_page": 0})
+        ultima = fonte.explorar_pagina("epub", 1, "pt", "visionvox:recentes")
+        self.assertFalse(ultima.tem_proxima)
+        self.assertEqual(self.http.get.call_args.kwargs["params"]["total_pagina"], 2)
 
     def test_wikisource_cria_download_oficial_e_ignora_capitulos(self):
         self.resposta.json.return_value = {

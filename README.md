@@ -86,9 +86,9 @@ cancelamento. O fluxo foi validado manualmente com navegação por teclado e lei
 de tela durante o desenvolvimento.
 
 Os temas de **Descobrir livros**, como Fantasia, usam os campos de assunto dos
-catálogos. Como o Visionvox não publica gênero, a Open Library fornece os títulos
-e as edições em português; o aplicativo consulta esses títulos no Visionvox e só
-exibe os livros cujo arquivo para download foi realmente confirmado.
+catálogos que fornecem esse metadado. **Adicionados recentemente no Visionvox**
+lista diretamente os arquivos publicados na biblioteca, sem tentar deduzir gênero
+por palavras do título.
 
 Cada fonte declara os formatos e idiomas que oferece; os seletores escondem
 combinações indisponíveis. Consultas idênticas usam um cache em memória de dois

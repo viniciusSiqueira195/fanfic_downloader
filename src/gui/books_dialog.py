@@ -18,7 +18,8 @@ IDIOMAS = {
     "Francês": "fr",
 }
 TEMAS = {
-    "Mais baixados": "",
+    "Adicionados recentemente no Visionvox": "visionvox:recentes",
+    "Mais baixados em catálogos públicos": "",
     "Ficção": "fiction",
     "Fantasia": "fantasy",
     "Romance": "romance",
