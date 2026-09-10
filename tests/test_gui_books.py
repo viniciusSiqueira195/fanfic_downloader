@@ -122,3 +122,17 @@ class BooksGuiTests(unittest.TestCase):
             self.assertEqual(dialogo.pasta_salva, r"C:\Livros")
         finally:
             dialogo.Destroy()
+
+    def test_ctrl_f_retorna_ao_campo_de_pesquisa(self):
+        import wx
+        from gui.books_dialog import BooksDialog
+        dialogo = BooksDialog(None, sons=Mock())
+        evento = Mock()
+        evento.GetKeyCode.return_value = ord("F")
+        evento.ControlDown.return_value = True
+        try:
+            dialogo.on_tecla(evento)
+            wx.Yield()
+            self.assertIs(wx.Window.FindFocus(), dialogo.termo)
+        finally:
+            dialogo.Destroy()

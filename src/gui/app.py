@@ -30,7 +30,7 @@ def carregar_config():
     return {"formato": "PDF", "pasta": "", "verificar_atualizacoes": False, "ultima_versao_lida": ""}
 
 def salvar_config(formato, pasta, verificar_atualizacoes, ultima_versao_lida="", pasta_livros=None,
-                  sons_navegacao=None, historico_livros=None):
+                  sons_navegacao=None, historico_livros=None, sons_individuais=None):
     try:
         anterior = carregar_config()
         sons_navegacao = (anterior.get("sons_navegacao", True)
@@ -39,6 +39,8 @@ def salvar_config(formato, pasta, verificar_atualizacoes, ultima_versao_lida="",
                         if pasta_livros is None else pasta_livros)
         historico_livros = (anterior.get("historico_livros", [])
                             if historico_livros is None else historico_livros)
+        sons_individuais = (anterior.get("sons_individuais", {})
+                            if sons_individuais is None else sons_individuais)
         with open(CONFIG_FILE, 'w', encoding='utf-8') as f:
             json.dump(
                 {
@@ -49,6 +51,7 @@ def salvar_config(formato, pasta, verificar_atualizacoes, ultima_versao_lida="",
                     "pasta_livros": pasta_livros,
                     "sons_navegacao": sons_navegacao,
                     "historico_livros": historico_livros[-50:],
+                    "sons_individuais": sons_individuais,
                 },
                 f,
             )
@@ -58,7 +61,7 @@ def salvar_config(formato, pasta, verificar_atualizacoes, ultima_versao_lida="",
 
 class ConfigFrame(wx.Frame):
     def __init__(self, main_frame):
-        super().__init__(parent=main_frame, title="Configurações", size=(480, 270))
+        super().__init__(parent=main_frame, title="Configurações", size=(520, 390))
         self.main_frame = main_frame
 
         panel = wx.Panel(self)
@@ -73,6 +76,15 @@ class ConfigFrame(wx.Frame):
         self.chk_sons = wx.CheckBox(panel, label="Sons suaves de navegação e confirmação")
         self.chk_sons.SetValue(bool(main_frame.config.get("sons_navegacao", True)))
         sizer.Add(self.chk_sons, 0, wx.LEFT | wx.RIGHT | wx.BOTTOM, 10)
+        individuais = main_frame.config.get("sons_individuais", {})
+        self.chk_som_abrir = wx.CheckBox(panel, label="Som ao abrir o programa")
+        self.chk_som_navegar = wx.CheckBox(panel, label="Som ao navegar")
+        self.chk_som_confirmar = wx.CheckBox(panel, label="Som ao confirmar")
+        for tipo, controle in (("abrir", self.chk_som_abrir),
+                               ("navegar", self.chk_som_navegar),
+                               ("confirmar", self.chk_som_confirmar)):
+            controle.SetValue(bool(individuais.get(tipo, True)))
+            sizer.Add(controle, 0, wx.LEFT | wx.RIGHT | wx.BOTTOM, 10)
 
         sizer_botoes = wx.BoxSizer(wx.HORIZONTAL)
         self.btn_salvar = wx.Button(panel, label="Salvar")
@@ -105,6 +117,11 @@ class ConfigFrame(wx.Frame):
     def on_salvar(self, event):
         self.main_frame.config["verificar_atualizacoes"] = self.chk_verificar_atualizacoes.GetValue()
         self.main_frame.config["sons_navegacao"] = self.chk_sons.GetValue()
+        self.main_frame.config["sons_individuais"] = {
+            "abrir": self.chk_som_abrir.GetValue(),
+            "navegar": self.chk_som_navegar.GetValue(),
+            "confirmar": self.chk_som_confirmar.GetValue(),
+        }
         self.main_frame._salvar_preferencias()
         self.Close()
 
@@ -195,7 +212,10 @@ class MainFrame(wx.Frame):
         super().__init__(parent=None, title=f"Fanfic Downloader v{APP_VERSION}", size=(500, 500))
 
         self.config = carregar_config()
-        self.sons = FeedbackSonoro(lambda: bool(self.config.get("sons_navegacao", True)))
+        self.sons = FeedbackSonoro(lambda tipo: bool(
+            self.config.get("sons_navegacao", True)
+            and self.config.get("sons_individuais", {}).get(tipo, True)
+        ))
         self.cancel_event = threading.Event()
         self._update_busy = False
         self.config_frame = None
@@ -532,6 +552,7 @@ class MainFrame(wx.Frame):
             pasta_livros=self.config.get("pasta_livros", ""),
             sons_navegacao=bool(self.config.get("sons_navegacao", True)),
             historico_livros=self.config.get("historico_livros", []),
+            sons_individuais=self.config.get("sons_individuais", {}),
         )
 
     def _mostrar_painel_download(self, status, tempo, porcentagem, botao_cancelar_ativo, texto_botao_cancelar):

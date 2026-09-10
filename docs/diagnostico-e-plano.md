@@ -58,27 +58,29 @@ Não foram feitos downloads reais das quatro fontes antigas, login no Spirit,
 execução do atualizador ou validação do executável em `dist`. A presença do código
 não comprova que cada serviço externo continua funcionando.
 
-## Primeira entrega implementada
+## Estado atual do módulo de livros
 
 - `books/visionvox.py`: busca por título/autor e formato, página por consulta,
   modelo imutável de resultado e parser separado da rede. Cliente HTTP injetável
   para testes. Não inventa autor a partir do nome do arquivo.
-- `books/download.py`: download em blocos, cancelamento, timeout, limite de 100 MB,
+- `books/gutenberg.py`: segunda fonte com metadados, formatos e sinopses via Gutendex.
+- `books/catalog.py` e `books/sources.py`: contrato comum, busca concorrente,
+  resultados progressivos, ordenação, deduplicação e falha isolada por catálogo.
+- `books/download.py`: download em blocos, progresso, cancelamento, timeout, limite de 100 MB,
   validação básica do tipo do arquivo, restrição de redirecionamentos, limpeza de
   temporários e recusa de sobrescrita. Preserva o formato original.
-- `gui/books_dialog.py`: janela nativa separada, ligada ao menu “Baixar livros”,
-  pesquisa/download em worker, paginação, pasta digitável ou selecionável,
-  feedback em texto e foco nos resultados/erros. EPUB é a opção inicial.
+- `gui/books_dialog.py`: pesquisa/download em worker, paginação, detalhes e sinopse
+  copiáveis, progresso acessível, diagnóstico das fontes, atalhos, histórico e
+  ações para abrir livro/pasta. A pasta só é pedida quando necessária.
 - Conversor EPUB: escapa texto literal em HTML, normaliza letras decorativas,
   gera identificadores distintos e usa nomes de arquivo compatíveis com Windows.
-- 30 testes offline sobre capítulos, normalização, TXT, EPUB, versões/hashes,
+- Testes offline sobre capítulos, normalização, TXT, EPUB, versões/hashes,
   pesquisa de livros e transferência. São um início de cobertura, não cobertura
   integral dos scrapers ou validação formal de acessibilidade.
 
-O módulo novo permite evoluir a arquitetura aos poucos: interface → casos de uso
-→ adaptadores de fonte / transferência / conversão. Antes de adicionar a segunda
-fonte, generalizar o contrato de fonte e retirar a validação específica do Visionvox
-do serviço de transferência. Não é necessário reescrever a interface inteira.
+O módulo segue a divisão interface → coordenação → adaptadores de catálogo e
+transferência. Novas fontes entram pelo mesmo contrato e precisam restringir seus
+próprios destinos de download.
 
 ## Viabilidade de outras fontes
 

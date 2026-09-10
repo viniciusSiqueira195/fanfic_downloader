@@ -26,7 +26,11 @@ class FeedbackSonoro:
         self._proxima_navegacao = 0.0
 
     def tocar(self, tipo):
-        if not self.habilitado():
+        try:
+            habilitado = self.habilitado(tipo)
+        except TypeError:
+            habilitado = self.habilitado()
+        if not habilitado:
             return
         agora = time.monotonic()
         if tipo == "navegar" and agora < self._proxima_navegacao:

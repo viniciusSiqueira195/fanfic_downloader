@@ -1,0 +1,25 @@
+name: Tests
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+          cache: pip
+      - name: Instalar dependências de teste
+        run: python -m pip install -r requirements-test.txt wxPython
+      - name: Compilar módulos
+        run: python -m compileall -q src tests
+      - name: Executar testes
+        run: python -m unittest discover -s tests -v

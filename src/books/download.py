@@ -57,8 +57,25 @@ def _validar_arquivo(caminho, formato):
             raise ValueError("O site não retornou um arquivo de texto válido.")
 
 
+def caminho_destino(livro, pasta):
+    pasta = validar_pasta(pasta)
+    titulo = livro.titulo
+    if titulo.lower().endswith("." + livro.formato):
+        titulo = titulo[:-(len(livro.formato) + 1)]
+    return pasta / (nome_seguro(titulo) + "." + livro.formato)
+
+
+def _proximo_nome(caminho):
+    numero = 2
+    while True:
+        candidato = caminho.with_name(f"{caminho.stem} ({numero}){caminho.suffix}")
+        if not candidato.exists():
+            return candidato
+        numero += 1
+
+
 def baixar_livro(livro, pasta, cancel_event=None, progresso=None, http=None,
-                 limite_bytes=100 * 1024 * 1024):
+                 limite_bytes=100 * 1024 * 1024, renomear_se_existir=False):
     http = http or requests
     if livro.formato not in FORMATOS:
         raise ValueError("Formato de livro não suportado.")
@@ -106,10 +123,9 @@ def baixar_livro(livro, pasta, cancel_event=None, progresso=None, http=None,
             raise ValueError("O site redirecionou o download muitas vezes.")
         _verificar_cancelamento(cancel_event)
         _validar_arquivo(temporario, livro.formato)
-        titulo = livro.titulo
-        if titulo.lower().endswith("." + livro.formato):
-            titulo = titulo[:-(len(livro.formato) + 1)]
-        destino = pasta / (nome_seguro(titulo) + "." + livro.formato)
+        destino = caminho_destino(livro, pasta)
+        if renomear_se_existir:
+            destino = _proximo_nome(destino)
         # Hard link publica o arquivo pronto atomicamente e falha se já existir.
         # O temporário está no mesmo volume. Não há substituição silenciosa.
         try:

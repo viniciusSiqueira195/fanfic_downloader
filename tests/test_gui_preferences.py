@@ -19,6 +19,15 @@ class PreferencesTests(unittest.TestCase):
                 app.salvar_config("TXT", "", False)
                 self.assertIs(app.carregar_config()["sons_navegacao"], False)
 
+    def test_preferencias_individuais_de_som_persistem(self):
+        from gui import app
+        with tempfile.TemporaryDirectory() as pasta:
+            with patch.object(app, "CONFIG_FILE", str(Path(pasta) / "config.json")):
+                sons = {"abrir": True, "navegar": False, "confirmar": True}
+                app.salvar_config("EPUB", "", False, sons_individuais=sons)
+                app.salvar_config("TXT", "", False)
+                self.assertEqual(app.carregar_config()["sons_individuais"], sons)
+
     def test_pasta_livros_persiste_ao_salvar_preferencias_de_fanfics(self):
         from gui import app
         with tempfile.TemporaryDirectory() as pasta:

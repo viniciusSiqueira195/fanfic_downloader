@@ -111,6 +111,13 @@ class DownloadTests(unittest.TestCase):
         self.assertEqual(existente.read_text(), "original")
         self.assertEqual(list(self.pasta.iterdir()), [existente])
 
+    def test_pode_salvar_nova_copia_com_nome_numerado(self):
+        existente = self.pasta / "Ação.txt"
+        existente.write_text("original")
+        copia = self.baixar(renomear_se_existir=True)
+        self.assertEqual(copia.name, "Ação (2).txt")
+        self.assertEqual(existente.read_text(), "original")
+
     def test_pasta_vazia_ou_relativa_nao_usa_diretorio_de_execucao(self):
         for pasta in ("", "   ", ".", "livros"):
             with self.subTest(pasta=pasta), self.assertRaises(ErroPasta):

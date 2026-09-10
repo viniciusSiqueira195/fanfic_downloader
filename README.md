@@ -30,14 +30,26 @@ comuns; um livro pode não existir no formato selecionado. A troca de fonte limp
 os resultados anteriores e mantém o termo para uma nova pesquisa.
 
 Na lista de resultados, Enter, Shift+F10, a tecla de menu ou o clique direito
-abrem as ações **Baixar**, **Ler sinopse** e **Escolher outra pasta para
+abrem as ações **Baixar**, **Ler detalhes e sinopse** e **Escolher outra pasta para
 downloads**. A sinopse aparece em uma janela de texto navegável. Ao baixar, o
 aplicativo usa a pasta salva; se não houver uma pasta válida, pede a escolha
 naquele momento e a grava imediatamente nas preferências.
 
-Os arquivos são preservados no formato original, com limite de 100 MB. Um arquivo
-existente com o mesmo nome não é substituído. O cancelamento pode aguardar o timeout
-da requisição atual. Use Tab/Shift+Tab para navegar e Escape para fechar ou solicitar
+As fontes são consultadas simultaneamente e o status informa cada resposta sem
+travar a janela. Resultados equivalentes são reunidos e as correspondências mais
+próximas aparecem primeiro. O botão **Verificar fontes** testa os catálogos sob
+demanda. O histórico guarda até 50 downloads existentes e permite abrir o livro
+ou sua pasta. A tela de detalhes informa fonte, formato, autor e idioma quando o
+catálogo fornece esses dados, além de permitir copiar a sinopse.
+
+Atalhos da janela de livros: `Ctrl+F` volta à pesquisa, `Ctrl+D` baixa o item
+selecionado, `Ctrl+H` abre o histórico e `F5` repete a pesquisa.
+
+Os arquivos são preservados no formato original, com limite de 100 MB. Se o livro
+já existir, o aplicativo oferece abrir o arquivo, salvar uma cópia numerada ou cancelar.
+O cancelamento da pesquisa combinada
+é percebido imediatamente; uma conexão já aberta pode terminar em segundo plano
+até seu timeout. Use Tab/Shift+Tab para navegar e Escape para fechar ou solicitar
 cancelamento. A janela ainda precisa de validação prática com NVDA/Narrador.
 
 LeLivros e outras fontes ainda não estão integrados. Veja o
@@ -51,6 +63,7 @@ Na lista de livros, Enter abre o menu de ações; no campo de pesquisa, Enter pe
 O áudio toca sem bloquear a interface e não substitui os
 nomes, mensagens ou estados dos controles. Para desativar, abra **Configurações**,
 desmarque **Sons suaves de navegação e confirmação** e escolha **Salvar**.
+Também é possível ativar separadamente os sons de abertura, navegação e confirmação.
 Os sons de abertura, navegação e confirmação vêm do pacote profissional Interface Sounds,
 criado pela Kenney e publicado sob licença CC0. Os arquivos usados estão incluídos
 no aplicativo e não dependem do esquema sonoro do Windows.
@@ -65,3 +78,7 @@ no aplicativo e não dependem do esquema sonoro do Windows.
 Os testes não fazem login, não consultam os sites e não aplicam atualizações.
 Cobrem o núcleo e o novo módulo de livros; não substituem testes com leitores de
 tela nem a verificação real das fontes externas.
+
+O GitHub Actions executa compilação e testes em Windows a cada push na `main` e
+em pull requests. A validação humana está descrita no
+[roteiro de acessibilidade do módulo de livros](docs/teste-acessibilidade-livros.md).

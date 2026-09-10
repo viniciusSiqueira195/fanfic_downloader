@@ -28,6 +28,7 @@ class SourcesTests(unittest.TestCase):
         self.assertEqual(pagina.livros[0].origem, "Project Gutenberg")
         self.assertIn("Machado de Assis", pagina.livros[0].titulo)
         self.assertIn("Capitu", pagina.livros[0].sinopse)
+        self.assertEqual(pagina.livros[0].autor, "Machado de Assis")
         self.assertEqual(self.http.get.call_args.kwargs["params"],
                          {"search": "Machado", "mime_type": "application/epub+zip", "page": 2})
 
@@ -91,3 +92,27 @@ class SourcesTests(unittest.TestCase):
         pagina = TodasFontes([visionvox, gutenberg]).buscar_pagina("livro")
         self.assertEqual([l.origem for l in pagina.livros], ["Visionvox", "Project Gutenberg"])
         self.assertTrue(pagina.tem_proxima)
+
+    def test_todas_as_fontes_ordenam_e_removem_duplicata_bibliografica(self):
+        visionvox, gutenberg = Mock(), Mock()
+        visionvox.nome, gutenberg.nome = "Visionvox", "Project Gutenberg"
+        visionvox.buscar_pagina.return_value = PaginaLivros([
+            Livro("Outro livro.epub", "https://visionvox.net/o.epub", "epub"),
+            Livro("Dom Casmurro Machado de Assis.epub", "https://visionvox.net/d.epub", "epub"),
+        ], False)
+        gutenberg.buscar_pagina.return_value = PaginaLivros([
+            Livro("Dom Casmurro — Machado de Assis", "https://www.gutenberg.org/d.epub", "epub",
+                  "Project Gutenberg"),
+        ], False)
+        pagina = TodasFontes([visionvox, gutenberg]).buscar_pagina("Dom Casmurro")
+        self.assertEqual(len(pagina.livros), 2)
+        self.assertIn("Dom Casmurro", pagina.livros[0].titulo)
+
+    def test_todas_as_fontes_emitem_progresso_individual(self):
+        fonte = Mock()
+        fonte.nome = "Catálogo"
+        fonte.buscar_pagina.return_value = PaginaLivros([], False)
+        progresso = Mock()
+        TodasFontes([fonte]).buscar_pagina("livro", progresso=progresso)
+        progresso.assert_any_call("Catálogo", "consultando", 0, [])
+        progresso.assert_any_call("Catálogo", "concluída", 0, [])

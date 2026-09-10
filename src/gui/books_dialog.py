@@ -5,7 +5,8 @@ from pathlib import Path
 
 import wx
 
-from books.download import DownloadCancelado, ErroPasta, baixar_livro, validar_pasta
+from books.download import (DownloadCancelado, ErroPasta, baixar_livro,
+                            caminho_destino, validar_pasta)
 from books.sources import FONTES, TodasFontes
 from gui.sounds import FeedbackSonoro
 
@@ -15,14 +16,32 @@ class SinopseDialog(wx.Dialog):
         super().__init__(parent, title=f"Sinopse — {livro.titulo}", size=(620, 480),
                          style=wx.DEFAULT_DIALOG_STYLE | wx.RESIZE_BORDER)
         sizer = wx.BoxSizer(wx.VERTICAL)
-        self.texto = wx.TextCtrl(self, value=texto, style=wx.TE_MULTILINE | wx.TE_READONLY,
+        detalhes = [f"Título: {livro.titulo}", f"Fonte: {livro.origem}",
+                    f"Formato: {livro.formato.upper()}"]
+        if livro.autor:
+            detalhes.append(f"Autor: {livro.autor}")
+        if livro.idioma:
+            detalhes.append(f"Idioma: {livro.idioma}")
+        conteudo = "\n".join(detalhes) + "\n\nSinopse:\n" + texto
+        self.texto = wx.TextCtrl(self, value=conteudo, style=wx.TE_MULTILINE | wx.TE_READONLY,
                                  name=f"Sinopse de {livro.titulo}")
         sizer.Add(self.texto, 1, wx.EXPAND | wx.ALL, 10)
+        copiar = wx.Button(self, label="&Copiar detalhes e sinopse")
         fechar = wx.Button(self, wx.ID_OK, label="Fechar")
+        sizer.Add(copiar, 0, wx.ALIGN_CENTER | wx.BOTTOM, 6)
         sizer.Add(fechar, 0, wx.ALIGN_CENTER | wx.BOTTOM, 10)
         self.SetSizer(sizer)
         self.CenterOnParent()
         self.texto.SetFocus()
+        copiar.Bind(wx.EVT_BUTTON, self.on_copiar)
+
+    def on_copiar(self, event):
+        if wx.TheClipboard.Open():
+            try:
+                wx.TheClipboard.SetData(wx.TextDataObject(self.texto.GetValue()))
+            finally:
+                wx.TheClipboard.Close()
+            wx.MessageBox("Detalhes e sinopse copiados.", "Copiar", parent=self)
 
 
 class HistoricoDialog(wx.Dialog):
@@ -96,7 +115,8 @@ class BooksDialog(wx.Dialog):
             "O arquivo será preservado no formato original. "
             "EPUB vem selecionado para facilitar a leitura ajustável; a acessibilidade "
             "depende de cada arquivo. Na lista, pressione Enter, Shift+F10 ou a tecla de menu "
-            "para baixar ou ler a sinopse. Use Tab para navegar e Escape para fechar ou cancelar."),
+            "para baixar ou ler a sinopse. Atalhos: Ctrl+F pesquisa, Ctrl+D baixa, Ctrl+H abre "
+            "o histórico e F5 repete a pesquisa. Use Tab para navegar e Escape para fechar ou cancelar."),
             style=wx.TE_MULTILINE | wx.TE_READONLY, name="Como baixar livros")
         sizer.Add(explicacao, 0, wx.EXPAND | wx.ALL, 8)
         sizer.Add(wx.StaticText(self, label="Título ou autor:"), 0, wx.LEFT, 8)
@@ -128,9 +148,10 @@ class BooksDialog(wx.Dialog):
         sizer.Add(self.progresso, 0, wx.EXPAND | wx.LEFT | wx.RIGHT | wx.BOTTOM, 8)
         botoes = wx.BoxSizer(wx.HORIZONTAL)
         self.btn_historico = wx.Button(self, label="&Histórico de downloads")
+        self.btn_saude = wx.Button(self, label="&Verificar fontes")
         self.cancelar = wx.Button(self, label="Cancelar operação")
         self.fechar = wx.Button(self, wx.ID_CANCEL, label="Fechar")
-        for botao in (self.btn_historico, self.cancelar, self.fechar):
+        for botao in (self.btn_historico, self.btn_saude, self.cancelar, self.fechar):
             botoes.Add(botao, 0, wx.RIGHT, 8)
         sizer.Add(botoes, 0, wx.ALL, 8)
         self.SetSizer(sizer)
@@ -143,6 +164,7 @@ class BooksDialog(wx.Dialog):
         self.proxima.Bind(wx.EVT_BUTTON, lambda e: self._buscar_pagina(self.pagina + 1))
         self.cancelar.Bind(wx.EVT_BUTTON, self.on_cancelar)
         self.btn_historico.Bind(wx.EVT_BUTTON, self.on_historico)
+        self.btn_saude.Bind(wx.EVT_BUTTON, self.on_verificar_fontes)
         self.fechar.Bind(wx.EVT_BUTTON, self.on_fechar)
         self.Bind(wx.EVT_CLOSE, self.on_fechar)
         self.Bind(wx.EVT_CHAR_HOOK, self.on_tecla)
@@ -214,10 +236,14 @@ class BooksDialog(wx.Dialog):
             return
         termo, formato = self.consulta
         self.status.SetValue(f"Pesquisando em {self.fonte_escolha.GetStringSelection()}, página {pagina + 1}...")
+        parciais = []
 
-        def atualizar_fonte(nome, estado, quantidade):
+        def atualizar_fonte(nome, estado, quantidade, livros):
             if estado == "concluída":
                 texto = f"{nome} respondeu com {quantidade} resultados. Aguardando as demais fontes..."
+                parciais.extend(livros)
+                rotulos = [self._rotulo_livro(livro) for livro in parciais]
+                wx.CallAfter(self.resultados.Set, rotulos)
             elif estado == "falhou":
                 texto = f"{nome} não respondeu. A pesquisa continua nas demais fontes..."
             else:
@@ -226,7 +252,8 @@ class BooksDialog(wx.Dialog):
 
         def buscar():
             if isinstance(self.fonte, TodasFontes):
-                livros = self.fonte.buscar_pagina(termo, formato, pagina, atualizar_fonte)
+                livros = self.fonte.buscar_pagina(
+                    termo, formato, pagina, atualizar_fonte, self.cancel_event)
             else:
                 livros = self.fonte.buscar_pagina(termo, formato, pagina)
             if self.cancel_event.is_set():
@@ -282,7 +309,7 @@ class BooksDialog(wx.Dialog):
             return
         menu = wx.Menu()
         baixar = menu.Append(wx.ID_ANY, "Baixar")
-        sinopse = menu.Append(wx.ID_ANY, "Ler sinopse")
+        sinopse = menu.Append(wx.ID_ANY, "Ler detalhes e sinopse")
         alterar = menu.Append(wx.ID_ANY, "Escolher outra pasta para downloads...")
         menu.Bind(wx.EVT_MENU, self.on_baixar, baixar)
         menu.Bind(wx.EVT_MENU, self.on_sinopse, sinopse)
@@ -304,6 +331,25 @@ class BooksDialog(wx.Dialog):
                 self.status.SetValue("Download não iniciado: nenhuma pasta foi escolhida.")
                 self.resultados.SetFocus()
                 return
+        renomear = False
+        existente = caminho_destino(livro, pasta)
+        if existente.exists():
+            dialogo = wx.MessageDialog(
+                self,
+                "Este livro já existe. Você pode abrir o arquivo existente ou salvar uma nova cópia com outro nome.",
+                "Livro já baixado", wx.YES_NO | wx.CANCEL | wx.ICON_QUESTION,
+            )
+            dialogo.SetYesNoCancelLabels("Abrir existente", "Salvar nova cópia", "Cancelar")
+            escolha = dialogo.ShowModal()
+            dialogo.Destroy()
+            if escolha == wx.ID_YES:
+                os.startfile(existente)
+                self.resultados.SetFocus()
+                return
+            if escolha != wx.ID_NO:
+                self.resultados.SetFocus()
+                return
+            renomear = True
         self.status.SetValue("Baixando livro. Aguarde ou cancele a operação.")
         self.progresso.SetValue(0)
         self.progresso.Show()
@@ -334,11 +380,28 @@ class BooksDialog(wx.Dialog):
             self.resultados.SetFocus()
 
         self._executar(lambda: baixar_livro(
-            livro, pasta, self.cancel_event, progresso=atualizar_progresso), concluido)
+            livro, pasta, self.cancel_event, progresso=atualizar_progresso,
+            renomear_se_existir=renomear), concluido)
 
     def on_historico(self, event):
         with HistoricoDialog(self, self.historico) as dialogo:
             dialogo.ShowModal()
+
+    def on_verificar_fontes(self, event):
+        if self.ocupado:
+            return
+        self.status.SetValue("Verificando as fontes. Aguarde...")
+
+        def mostrar(estados):
+            linhas = [f"{nome}: {'disponível' if ok else 'indisponível'}"
+                      for nome, ok, _ in estados]
+            texto = ". ".join(linhas) + "."
+            self.status.SetValue(texto)
+            wx.MessageBox(texto, "Estado das fontes", parent=self)
+            self.status.SetFocus()
+
+        self._executar(TodasFontes().verificar_saude, mostrar)
+        self.status.SetFocus()
 
     def on_sinopse(self, event):
         livro = self._livro_selecionado()
@@ -371,6 +434,19 @@ class BooksDialog(wx.Dialog):
     def on_tecla(self, event):
         tecla = event.GetKeyCode()
         foco = wx.Window.FindFocus()
+        if event.ControlDown() and tecla in (ord("F"), ord("f")):
+            self.termo.SetFocus()
+            self.termo.SelectAll()
+            return
+        if event.ControlDown() and tecla in (ord("D"), ord("d")):
+            self.on_baixar(event)
+            return
+        if event.ControlDown() and tecla in (ord("H"), ord("h")):
+            self.on_historico(event)
+            return
+        if tecla == wx.WXK_F5:
+            self.on_pesquisar(event)
+            return
         if tecla in (wx.WXK_RETURN, wx.WXK_NUMPAD_ENTER) and foco in (self.termo, self.resultados):
             self.sons.tocar("confirmar")
             if foco is self.resultados:
