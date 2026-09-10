@@ -61,6 +61,31 @@ class PreferencesTests(unittest.TestCase):
                 self.assertEqual(config["modo_lista_livros"], "continuo")
                 self.assertEqual(config["limite_resultados_livros"], 0)
 
+    def test_configuracoes_usam_guias_e_controle_unico_de_sons(self):
+        import wx
+        from gui.app import ConfigFrame
+        aplicativo = wx.App.Get() or wx.App(False)
+        principal = wx.Frame(None)
+        principal.config = {"modo_lista_livros": "manual", "limite_resultados_livros": 200,
+                            "sons_navegacao": True, "verificar_atualizacoes": False}
+        principal.sons = Mock()
+        principal.sons.vincular = Mock()
+        principal._salvar_preferencias = Mock()
+        janela = ConfigFrame(principal)
+        try:
+            self.assertEqual([janela.guias.GetPageText(i)
+                              for i in range(janela.guias.GetPageCount())],
+                             ["Geral", "Livros", "Sons"])
+            janela.chk_sons.SetValue(False)
+            janela.on_salvar(None)
+            self.assertFalse(principal.config["sons_navegacao"])
+            self.assertEqual(principal.config["sons_individuais"], {
+                "abrir": False, "navegar": False, "confirmar": False})
+        finally:
+            if janela:
+                janela.Destroy()
+            principal.Destroy()
+
     def test_sair_fecha_janela(self):
         from gui.app import MainFrame
         janela = Mock()

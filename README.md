@@ -96,9 +96,9 @@ projeto, problemas conhecidos e pesquisa inicial das fontes.
 Os menus e a janela de livros oferecem tons curtos e suaves ao navegar e confirmar.
 Na lista de livros, Enter abre o menu de ações; no campo de pesquisa, Enter pesquisa.
 O áudio toca sem bloquear a interface e não substitui os
-nomes, mensagens ou estados dos controles. Para desativar, abra **Configurações**,
-desmarque **Sons suaves de navegação e confirmação** e escolha **Salvar**.
-Também é possível ativar separadamente os sons de abertura, navegação e confirmação.
+nomes, mensagens ou estados dos controles. Para desativar, abra a guia **Sons**
+em **Configurações**, desmarque **Ativar todos os sons do aplicativo** e escolha
+**Salvar**. A mesma opção controla em conjunto abertura, navegação e confirmação.
 Os sons de abertura, navegação e confirmação vêm do pacote profissional Interface Sounds,
 criado pela Kenney e publicado sob licença CC0. Os arquivos usados estão incluídos
 no aplicativo e não dependem do esquema sonoro do Windows.

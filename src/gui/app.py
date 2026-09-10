@@ -78,33 +78,32 @@ def salvar_config(formato, pasta, verificar_atualizacoes, ultima_versao_lida="",
 
 class ConfigFrame(wx.Frame):
     def __init__(self, main_frame):
-        super().__init__(parent=main_frame, title="Configurações", size=(620, 590))
+        super().__init__(parent=main_frame, title="Configurações", size=(650, 480))
         self.main_frame = main_frame
 
         panel = wx.Panel(self)
         sizer = wx.BoxSizer(wx.VERTICAL)
 
+        self.guias = wx.Notebook(panel, name="Categorias de configurações")
+        guia_geral = wx.Panel(self.guias, name="Configurações gerais")
+        guia_livros = wx.Panel(self.guias, name="Configurações de livros")
+        guia_sons = wx.Panel(self.guias, name="Configurações de sons")
+        self.guias.AddPage(guia_geral, "Geral")
+        self.guias.AddPage(guia_livros, "Livros")
+        self.guias.AddPage(guia_sons, "Sons")
+        sizer.Add(self.guias, 1, wx.EXPAND | wx.ALL, 10)
+
         self.chk_verificar_atualizacoes = wx.CheckBox(
-            panel,
+            guia_geral,
             label="Verificar atualizações automaticamente ao iniciar",
         )
         self.chk_verificar_atualizacoes.SetValue(bool(main_frame.config.get("verificar_atualizacoes", False)))
-        sizer.Add(self.chk_verificar_atualizacoes, 0, wx.ALL, 10)
-        self.chk_sons = wx.CheckBox(panel, label="Sons suaves de navegação e confirmação")
-        self.chk_sons.SetValue(bool(main_frame.config.get("sons_navegacao", True)))
-        sizer.Add(self.chk_sons, 0, wx.LEFT | wx.RIGHT | wx.BOTTOM, 10)
-        individuais = main_frame.config.get("sons_individuais", {})
-        self.chk_som_abrir = wx.CheckBox(panel, label="Som ao abrir o programa")
-        self.chk_som_navegar = wx.CheckBox(panel, label="Som ao navegar")
-        self.chk_som_confirmar = wx.CheckBox(panel, label="Som ao confirmar")
-        for tipo, controle in (("abrir", self.chk_som_abrir),
-                               ("navegar", self.chk_som_navegar),
-                               ("confirmar", self.chk_som_confirmar)):
-            controle.SetValue(bool(individuais.get(tipo, True)))
-            sizer.Add(controle, 0, wx.LEFT | wx.RIGHT | wx.BOTTOM, 10)
+        geral_sizer = wx.BoxSizer(wx.VERTICAL)
+        geral_sizer.Add(self.chk_verificar_atualizacoes, 0, wx.ALL, 12)
+        guia_geral.SetSizer(geral_sizer)
 
         self.modo_lista_livros = wx.RadioBox(
-            panel, label="Carregamento das listas de livros",
+            guia_livros, label="Carregamento das listas de livros",
             choices=[
                 "Modo contínuo: usa mais recursos; os resultados são carregados automaticamente ao longo do tempo.",
                 "Modo manual: ao chegar aos últimos 5 itens, são carregados mais 15 resultados.",
@@ -113,14 +112,26 @@ class ConfigFrame(wx.Frame):
         )
         self.modo_lista_livros.SetSelection(
             0 if main_frame.config.get("modo_lista_livros") == "continuo" else 1)
-        sizer.Add(self.modo_lista_livros, 0, wx.EXPAND | wx.LEFT | wx.RIGHT | wx.BOTTOM, 10)
-        sizer.Add(wx.StaticText(
-            panel, label="Limite de resultados exibidos nas listas de livros. Use 0 para obter todos os possíveis:"),
+        livros_sizer = wx.BoxSizer(wx.VERTICAL)
+        livros_sizer.Add(self.modo_lista_livros, 0, wx.EXPAND | wx.ALL, 12)
+        livros_sizer.Add(wx.StaticText(
+            guia_livros, label="Limite de resultados exibidos nas listas de livros. Use 0 para obter todos os possíveis:"),
             0, wx.LEFT | wx.RIGHT, 10)
         self.limite_resultados_livros = wx.TextCtrl(
-            panel, value=str(main_frame.config.get("limite_resultados_livros", 200)),
+            guia_livros, value=str(main_frame.config.get("limite_resultados_livros", 200)),
             name="Limite de resultados de livros")
-        sizer.Add(self.limite_resultados_livros, 0, wx.EXPAND | wx.ALL, 10)
+        livros_sizer.Add(self.limite_resultados_livros, 0, wx.EXPAND | wx.ALL, 10)
+        guia_livros.SetSizer(livros_sizer)
+
+        sons_sizer = wx.BoxSizer(wx.VERTICAL)
+        sons_sizer.Add(wx.StaticText(
+            guia_sons,
+            label="Esta opção controla os sons de abertura, navegação e confirmação em todo o aplicativo."),
+            0, wx.EXPAND | wx.ALL, 12)
+        self.chk_sons = wx.CheckBox(guia_sons, label="Ativar todos os sons do aplicativo")
+        self.chk_sons.SetValue(bool(main_frame.config.get("sons_navegacao", True)))
+        sons_sizer.Add(self.chk_sons, 0, wx.LEFT | wx.RIGHT | wx.BOTTOM, 12)
+        guia_sons.SetSizer(sons_sizer)
 
         sizer_botoes = wx.BoxSizer(wx.HORIZONTAL)
         self.btn_salvar = wx.Button(panel, label="Salvar")
@@ -162,11 +173,10 @@ class ConfigFrame(wx.Frame):
             self.limite_resultados_livros.SelectAll()
             return
         self.main_frame.config["verificar_atualizacoes"] = self.chk_verificar_atualizacoes.GetValue()
-        self.main_frame.config["sons_navegacao"] = self.chk_sons.GetValue()
+        sons_ativos = self.chk_sons.GetValue()
+        self.main_frame.config["sons_navegacao"] = sons_ativos
         self.main_frame.config["sons_individuais"] = {
-            "abrir": self.chk_som_abrir.GetValue(),
-            "navegar": self.chk_som_navegar.GetValue(),
-            "confirmar": self.chk_som_confirmar.GetValue(),
+            "abrir": sons_ativos, "navegar": sons_ativos, "confirmar": sons_ativos,
         }
         self.main_frame.config["modo_lista_livros"] = (
             "continuo" if self.modo_lista_livros.GetSelection() == 0 else "manual")
