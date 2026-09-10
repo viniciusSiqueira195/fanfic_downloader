@@ -108,7 +108,8 @@ class HistoricoDialog(wx.Dialog):
 
 class BooksDialog(wx.Dialog):
     def __init__(self, parent, pasta="", sons=None, ao_escolher_pasta=None,
-                 historico=None, ao_baixar=None):
+                 historico=None, ao_baixar=None, modo_carregamento="manual",
+                 limite_resultados=200):
         super().__init__(parent, title="Baixar livros", size=(650, 720),
                          style=wx.DEFAULT_DIALOG_STYLE | wx.RESIZE_BORDER)
         self.sons = sons or FeedbackSonoro()
@@ -126,6 +127,14 @@ class BooksDialog(wx.Dialog):
         self.ao_escolher_pasta = ao_escolher_pasta
         self.historico = list(historico or [])
         self.ao_baixar = ao_baixar
+        self.modo_carregamento = (modo_carregamento
+                                  if modo_carregamento in ("continuo", "manual") else "manual")
+        self.limite_resultados = max(0, int(limite_resultados))
+        self.carregando_mais = False
+        self.lote_restante = 0
+        self.urls_exibidas = set()
+        self.resultados_reserva = []
+        self.tem_proxima_remota = False
         sizer = wx.BoxSizer(wx.VERTICAL)
         self.painel_busca = wx.Panel(self, name="Tela de pesquisa de livros")
         busca_sizer = wx.BoxSizer(wx.VERTICAL)
@@ -178,6 +187,8 @@ class BooksDialog(wx.Dialog):
         paginas.Add(self.anterior, 0, wx.RIGHT, 8)
         paginas.Add(self.proxima)
         resultados_sizer.Add(paginas, 0, wx.ALL, 8)
+        self.anterior.Hide()
+        self.proxima.Hide()
         self.status = wx.TextCtrl(self.painel_resultados, value="Pronto para pesquisar.",
                                   style=wx.TE_READONLY, name="Status da operação de livros")
         resultados_sizer.Add(self.status, 0, wx.EXPAND | wx.ALL, 8)
@@ -199,6 +210,7 @@ class BooksDialog(wx.Dialog):
         self.termo.Bind(wx.EVT_TEXT_ENTER, self.on_pesquisar)
         self.fonte_escolha.Bind(wx.EVT_CHOICE, self.on_fonte)
         self.resultados.Bind(wx.EVT_LISTBOX_DCLICK, self.on_menu_acoes)
+        self.resultados.Bind(wx.EVT_LISTBOX, self.on_selecao_resultado)
         self.resultados.Bind(wx.EVT_CONTEXT_MENU, self.on_menu_acoes)
         self.anterior.Bind(wx.EVT_BUTTON, lambda e: self._buscar_pagina(self.pagina - 1))
         self.proxima.Bind(wx.EVT_BUTTON, lambda e: self._buscar_pagina(self.pagina + 1))
@@ -274,6 +286,7 @@ class BooksDialog(wx.Dialog):
             self.termo.SetFocus()
             return
         self.explorando = False
+        self._reiniciar_resultados()
         self.consulta = (self.termo.GetValue().strip(), self.formato.GetStringSelection().lower(),
                          IDIOMAS[self.idioma.GetStringSelection()])
         self._buscar_pagina(0)
@@ -290,6 +303,7 @@ class BooksDialog(wx.Dialog):
                 return
             self.topico_explorar = TEMAS[dialogo.GetStringSelection()]
         self.explorando = True
+        self._reiniciar_resultados()
         self.fonte_escolha.SetStringSelection("Todas as fontes")
         self.fonte = FONTES["Todas as fontes"]()
         self.consulta = ("", self.formato.GetStringSelection().lower(),
@@ -304,6 +318,10 @@ class BooksDialog(wx.Dialog):
         self.pagina = 0
         self.tem_proxima = False
         self.livros = []
+        self.urls_exibidas.clear()
+        self.resultados_reserva.clear()
+        self.tem_proxima_remota = False
+        self.lote_restante = 0
         self.resultados.Clear()
         self.status.SetValue("Fonte alterada. Pressione Pesquisar para consultar o título ou autor informado.")
         self._ocupacao(False)
@@ -331,21 +349,35 @@ class BooksDialog(wx.Dialog):
         self.idioma.SetStringSelection(atual_idioma if atual_idioma in opcoes_idioma
                                        else opcoes_idioma[0])
 
+    def _reiniciar_resultados(self):
+        self.pagina = 0
+        self.tem_proxima = False
+        self.livros = []
+        self.urls_exibidas.clear()
+        self.resultados_reserva.clear()
+        self.tem_proxima_remota = False
+        self.lote_restante = 0
+        self.resultados.Clear()
+
     def _buscar_pagina(self, pagina):
-        if self.ocupado or self.consulta is None:
+        incremental = pagina > 0
+        if self.ocupado or self.carregando_mais or self.consulta is None:
             return
         self._mostrar_tela(True)
         termo, formato, idioma = self.consulta
         acao = "Explorando livros disponíveis" if self.explorando else "Pesquisando"
-        self.status.SetValue(f"{acao} em {self.fonte_escolha.GetStringSelection()}, página {pagina + 1}...")
+        self.status.SetValue(
+            f"{acao} em {self.fonte_escolha.GetStringSelection()}..." if not incremental
+            else f"Carregando mais resultados; {len(self.livros)} exibidos até agora...")
         parciais = []
 
         def atualizar_fonte(nome, estado, quantidade, livros):
             if estado == "concluída":
                 texto = f"{nome} respondeu com {quantidade} resultados. Aguardando as demais fontes..."
-                parciais.extend(livros)
-                rotulos = [self._rotulo_livro(livro) for livro in parciais]
-                wx.CallAfter(self.resultados.Set, rotulos)
+                if not incremental:
+                    parciais.extend(livros)
+                    rotulos = [self._rotulo_livro(livro) for livro in parciais]
+                    wx.CallAfter(self.resultados.Set, rotulos)
             elif estado == "falhou":
                 texto = f"{nome} não respondeu. A pesquisa continua nas demais fontes..."
             else:
@@ -366,25 +398,112 @@ class BooksDialog(wx.Dialog):
             return livros
 
         def mostrar(resultado):
-            livros = resultado.livros
-            self.tem_proxima = resultado.tem_proxima
+            if not incremental:
+                self.livros = []
+                self.urls_exibidas.clear()
+                self.resultados.Clear()
+            novos, urls_da_pagina = [], set()
+            for livro in resultado.livros:
+                chave = livro.url.casefold()
+                if chave not in self.urls_exibidas and chave not in urls_da_pagina:
+                    urls_da_pagina.add(chave)
+                    novos.append(livro)
+            self.urls_exibidas.update(urls_da_pagina)
+            if incremental and self.modo_carregamento == "manual" and self.lote_restante:
+                self.resultados_reserva.extend(novos[self.lote_restante:])
+                novos = novos[:self.lote_restante]
+            if self.limite_resultados:
+                novos = novos[:max(0, self.limite_resultados - len(self.livros))]
+            for livro in novos:
+                self.livros.append(livro)
+                self.resultados.Append(self._rotulo_livro(livro))
+            self.tem_proxima_remota = resultado.tem_proxima
+            self.tem_proxima = resultado.tem_proxima or bool(self.resultados_reserva)
             self.pagina = pagina
-            self.livros = livros
-            self.resultados.Set([self._rotulo_livro(livro) for livro in livros])
+            atingiu_limite = bool(self.limite_resultados and
+                                  len(self.livros) >= self.limite_resultados)
+            if atingiu_limite:
+                self.tem_proxima = False
             self.status.SetValue(
-                f"Página {pagina + 1}: {len(livros)} livros encontrados.{resultado.aviso}"
+                f"{len(self.livros)} livros carregados."
+                f"{' Limite configurado atingido.' if atingiu_limite else ''}{resultado.aviso}"
             )
-            self._ocupacao(False)
-            if livros:
+            if incremental:
+                self.carregando_mais = False
+                self.cancelar.Disable()
+            else:
+                self._ocupacao(False)
+            if self.livros and not incremental:
                 self.resultados.SetSelection(0)
                 self.resultados.SetFocus()
-            else:
+            elif not self.livros:
                 self.status.SetFocus()
+            if self.modo_carregamento == "manual" and self.lote_restante:
+                self.lote_restante = max(0, self.lote_restante - len(novos))
+            continuar = (self.modo_carregamento == "continuo" or self.lote_restante > 0)
+            if continuar and self.tem_proxima and novos:
+                wx.CallAfter(self._buscar_pagina, pagina + 1)
 
-        self._executar(buscar, mostrar)
+        if incremental:
+            self.carregando_mais = True
+            self.cancelar.Enable()
+
+            def worker_incremental():
+                try:
+                    resultado, erro = buscar(), None
+                except Exception as exc:
+                    resultado, erro = None, exc
+                wx.CallAfter(self._terminar_incremental, mostrar, resultado, erro)
+
+            threading.Thread(target=worker_incremental, daemon=True).start()
+        else:
+            self._executar(buscar, mostrar)
         # Leva o leitor de tela à confirmação da busca sem bloquear a janela.
         # _executar dá foco ao botão Cancelar, então esta chamada precisa vir depois.
-        self.status.SetFocus()
+        if not incremental:
+            self.status.SetFocus()
+
+    def _terminar_incremental(self, concluido, resultado, erro):
+        self.carregando_mais = False
+        self.cancelar.Disable()
+        if isinstance(erro, DownloadCancelado) or self.cancel_event.is_set():
+            self.tem_proxima = False
+            self.status.SetValue("Carregamento de novos resultados cancelado.")
+            return
+        if erro:
+            self.tem_proxima = False
+            self.status.SetValue(f"Mais resultados não puderam ser carregados: {erro}")
+            return
+        concluido(resultado)
+
+    def on_selecao_resultado(self, event):
+        if (self.modo_carregamento == "manual" and not self.ocupado
+                and not self.carregando_mais and self.tem_proxima):
+            indice = self.resultados.GetSelection()
+            if indice != wx.NOT_FOUND and indice >= self.resultados.GetCount() - 5:
+                self.lote_restante = 15
+                quantidade = min(self.lote_restante, len(self.resultados_reserva))
+                if self.limite_resultados:
+                    quantidade = min(quantidade,
+                                     max(0, self.limite_resultados - len(self.livros)))
+                for livro in self.resultados_reserva[:quantidade]:
+                    self.livros.append(livro)
+                    self.resultados.Append(self._rotulo_livro(livro))
+                del self.resultados_reserva[:quantidade]
+                self.lote_restante -= quantidade
+                self.tem_proxima = self.tem_proxima_remota or bool(self.resultados_reserva)
+                atingiu_limite = bool(self.limite_resultados and
+                                      len(self.livros) >= self.limite_resultados)
+                if atingiu_limite:
+                    self.tem_proxima = False
+                    self.lote_restante = 0
+                    self.status.SetValue(
+                        f"{len(self.livros)} livros carregados. Limite configurado atingido.")
+                elif self.lote_restante and self.tem_proxima_remota:
+                    self._buscar_pagina(self.pagina + 1)
+                else:
+                    self.status.SetValue(f"{len(self.livros)} livros carregados.")
+        event.Skip()
 
     @staticmethod
     def _rotulo_livro(livro):
@@ -572,7 +691,7 @@ class BooksDialog(wx.Dialog):
             event.Skip()
 
     def on_fechar(self, event):
-        if self.ocupado:
+        if self.ocupado or self.carregando_mais:
             self.on_cancelar(event)
             if isinstance(event, wx.CloseEvent) and event.CanVeto():
                 event.Veto()

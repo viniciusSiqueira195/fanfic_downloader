@@ -24,13 +24,23 @@ def carregar_config():
                     config["verificar_atualizacoes"] = False
                 if "ultima_versao_lida" not in config:
                     config["ultima_versao_lida"] = ""
+                if config.get("modo_lista_livros") not in ("continuo", "manual"):
+                    config["modo_lista_livros"] = "manual"
+                try:
+                    config["limite_resultados_livros"] = max(
+                        0, int(config.get("limite_resultados_livros", 200)))
+                except (TypeError, ValueError):
+                    config["limite_resultados_livros"] = 200
                 return config
         except:
             pass
-    return {"formato": "PDF", "pasta": "", "verificar_atualizacoes": False, "ultima_versao_lida": ""}
+    return {"formato": "PDF", "pasta": "", "verificar_atualizacoes": False,
+            "ultima_versao_lida": "", "modo_lista_livros": "manual",
+            "limite_resultados_livros": 200}
 
 def salvar_config(formato, pasta, verificar_atualizacoes, ultima_versao_lida="", pasta_livros=None,
-                  sons_navegacao=None, historico_livros=None, sons_individuais=None):
+                  sons_navegacao=None, historico_livros=None, sons_individuais=None,
+                  modo_lista_livros=None, limite_resultados_livros=None):
     try:
         anterior = carregar_config()
         sons_navegacao = (anterior.get("sons_navegacao", True)
@@ -41,6 +51,11 @@ def salvar_config(formato, pasta, verificar_atualizacoes, ultima_versao_lida="",
                             if historico_livros is None else historico_livros)
         sons_individuais = (anterior.get("sons_individuais", {})
                             if sons_individuais is None else sons_individuais)
+        modo_lista_livros = (anterior.get("modo_lista_livros", "manual")
+                             if modo_lista_livros is None else modo_lista_livros)
+        limite_resultados_livros = (anterior.get("limite_resultados_livros", 200)
+                                    if limite_resultados_livros is None
+                                    else limite_resultados_livros)
         with open(CONFIG_FILE, 'w', encoding='utf-8') as f:
             json.dump(
                 {
@@ -52,6 +67,8 @@ def salvar_config(formato, pasta, verificar_atualizacoes, ultima_versao_lida="",
                     "sons_navegacao": sons_navegacao,
                     "historico_livros": historico_livros[-50:],
                     "sons_individuais": sons_individuais,
+                    "modo_lista_livros": modo_lista_livros,
+                    "limite_resultados_livros": max(0, int(limite_resultados_livros)),
                 },
                 f,
             )
@@ -61,7 +78,7 @@ def salvar_config(formato, pasta, verificar_atualizacoes, ultima_versao_lida="",
 
 class ConfigFrame(wx.Frame):
     def __init__(self, main_frame):
-        super().__init__(parent=main_frame, title="Configurações", size=(520, 390))
+        super().__init__(parent=main_frame, title="Configurações", size=(620, 590))
         self.main_frame = main_frame
 
         panel = wx.Panel(self)
@@ -85,6 +102,25 @@ class ConfigFrame(wx.Frame):
                                ("confirmar", self.chk_som_confirmar)):
             controle.SetValue(bool(individuais.get(tipo, True)))
             sizer.Add(controle, 0, wx.LEFT | wx.RIGHT | wx.BOTTOM, 10)
+
+        self.modo_lista_livros = wx.RadioBox(
+            panel, label="Carregamento das listas de livros",
+            choices=[
+                "Modo contínuo: usa mais recursos; os resultados são carregados automaticamente ao longo do tempo.",
+                "Modo manual: ao chegar aos últimos 5 itens, são carregados mais 15 resultados.",
+            ], majorDimension=1, style=wx.RA_SPECIFY_ROWS,
+            name="Modo de carregamento das listas de livros",
+        )
+        self.modo_lista_livros.SetSelection(
+            0 if main_frame.config.get("modo_lista_livros") == "continuo" else 1)
+        sizer.Add(self.modo_lista_livros, 0, wx.EXPAND | wx.LEFT | wx.RIGHT | wx.BOTTOM, 10)
+        sizer.Add(wx.StaticText(
+            panel, label="Limite de resultados exibidos nas listas de livros. Use 0 para obter todos os possíveis:"),
+            0, wx.LEFT | wx.RIGHT, 10)
+        self.limite_resultados_livros = wx.TextCtrl(
+            panel, value=str(main_frame.config.get("limite_resultados_livros", 200)),
+            name="Limite de resultados de livros")
+        sizer.Add(self.limite_resultados_livros, 0, wx.EXPAND | wx.ALL, 10)
 
         sizer_botoes = wx.BoxSizer(wx.HORIZONTAL)
         self.btn_salvar = wx.Button(panel, label="Salvar")
@@ -115,6 +151,16 @@ class ConfigFrame(wx.Frame):
         event.Skip()
 
     def on_salvar(self, event):
+        try:
+            limite = int(self.limite_resultados_livros.GetValue().strip())
+            if limite < 0:
+                raise ValueError
+        except ValueError:
+            wx.MessageBox("Informe um número inteiro igual ou maior que zero para o limite de resultados.",
+                          "Configurações", wx.OK | wx.ICON_ERROR, parent=self)
+            self.limite_resultados_livros.SetFocus()
+            self.limite_resultados_livros.SelectAll()
+            return
         self.main_frame.config["verificar_atualizacoes"] = self.chk_verificar_atualizacoes.GetValue()
         self.main_frame.config["sons_navegacao"] = self.chk_sons.GetValue()
         self.main_frame.config["sons_individuais"] = {
@@ -122,6 +168,9 @@ class ConfigFrame(wx.Frame):
             "navegar": self.chk_som_navegar.GetValue(),
             "confirmar": self.chk_som_confirmar.GetValue(),
         }
+        self.main_frame.config["modo_lista_livros"] = (
+            "continuo" if self.modo_lista_livros.GetSelection() == 0 else "manual")
+        self.main_frame.config["limite_resultados_livros"] = limite
         self.main_frame._salvar_preferencias()
         self.Close()
 
@@ -481,7 +530,9 @@ class MainFrame(wx.Frame):
             with BooksDialog(self, self.config.get("pasta_livros", self.config.get("pasta", "")),
                              sons=self.sons, ao_escolher_pasta=self._definir_pasta_livros,
                              historico=self.config.get("historico_livros", []),
-                             ao_baixar=self._registrar_download_livro) as dialogo:
+                             ao_baixar=self._registrar_download_livro,
+                             modo_carregamento=self.config.get("modo_lista_livros", "manual"),
+                             limite_resultados=self.config.get("limite_resultados_livros", 200)) as dialogo:
                 dialogo.ShowModal()
                 if dialogo.ultima_pasta:
                     self.config["pasta_livros"] = dialogo.ultima_pasta
@@ -553,6 +604,8 @@ class MainFrame(wx.Frame):
             sons_navegacao=bool(self.config.get("sons_navegacao", True)),
             historico_livros=self.config.get("historico_livros", []),
             sons_individuais=self.config.get("sons_individuais", {}),
+            modo_lista_livros=self.config.get("modo_lista_livros", "manual"),
+            limite_resultados_livros=self.config.get("limite_resultados_livros", 200),
         )
 
     def _mostrar_painel_download(self, status, tempo, porcentagem, botao_cancelar_ativo, texto_botao_cancelar):

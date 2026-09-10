@@ -69,7 +69,7 @@ class BooksGuiTests(unittest.TestCase):
             wx.Yield()
             self.assertEqual(
                 dialogo.status.GetValue(),
-                "Pesquisando em Todas as fontes, página 1...",
+                "Pesquisando em Todas as fontes...",
             )
             self.assertIs(wx.Window.FindFocus(), dialogo.status)
             dialogo._executar.assert_called_once()
@@ -195,5 +195,59 @@ class BooksGuiTests(unittest.TestCase):
             dialogo.on_fonte(None)
             self.assertEqual([dialogo.formato.GetString(i)
                               for i in range(dialogo.formato.GetCount())], ["EPUB", "PDF"])
+        finally:
+            dialogo.Destroy()
+
+    def test_modo_continuo_carrega_ate_o_limite_sem_tirar_selecao(self):
+        import wx
+        from books.models import Livro, PaginaLivros
+        from gui.books_dialog import BooksDialog
+        dialogo = BooksDialog(None, sons=Mock(), modo_carregamento="continuo",
+                              limite_resultados=3)
+        dialogo.fonte = Mock()
+        dialogo.fonte.buscar_pagina.side_effect = [
+            PaginaLivros([Livro("A", "https://visionvox.net/a.epub", "epub")], True),
+            PaginaLivros([Livro("B", "https://visionvox.net/b.epub", "epub")], True),
+            PaginaLivros([Livro("C", "https://visionvox.net/c.epub", "epub")], True),
+        ]
+        try:
+            dialogo.termo.SetValue("livro")
+            dialogo.on_pesquisar(None)
+            limite = time.monotonic() + 5
+            while (dialogo.ocupado or dialogo.carregando_mais) and time.monotonic() < limite:
+                wx.Yield(); time.sleep(.01)
+            self.assertEqual(dialogo.resultados.GetCount(), 3)
+            self.assertEqual(dialogo.resultados.GetSelection(), 0)
+            self.assertIn("Limite configurado atingido", dialogo.status.GetValue())
+        finally:
+            dialogo.Destroy()
+
+    def test_modo_manual_acrescenta_quinze_ao_chegar_no_fim(self):
+        import wx
+        from books.models import Livro, PaginaLivros
+        from gui.books_dialog import BooksDialog
+        dialogo = BooksDialog(None, sons=Mock(), modo_carregamento="manual",
+                              limite_resultados=200)
+        primeira = [Livro(f"Livro {i}", f"https://visionvox.net/{i}.epub", "epub")
+                    for i in range(10)]
+        segunda = [Livro(f"Livro {i}", f"https://visionvox.net/{i}.epub", "epub")
+                   for i in range(10, 30)]
+        dialogo.fonte = Mock()
+        dialogo.fonte.buscar_pagina.side_effect = [PaginaLivros(primeira, True),
+                                                   PaginaLivros(segunda, False)]
+        evento = Mock()
+        try:
+            dialogo.termo.SetValue("livro")
+            dialogo.on_pesquisar(None)
+            limite = time.monotonic() + 5
+            while dialogo.ocupado and time.monotonic() < limite:
+                wx.Yield(); time.sleep(.01)
+            dialogo.resultados.SetSelection(5)
+            dialogo.on_selecao_resultado(evento)
+            while dialogo.carregando_mais and time.monotonic() < limite:
+                wx.Yield(); time.sleep(.01)
+            self.assertEqual(dialogo.resultados.GetCount(), 25)
+            self.assertEqual(len(dialogo.resultados_reserva), 5)
+            evento.Skip.assert_called()
         finally:
             dialogo.Destroy()

@@ -50,6 +50,17 @@ class PreferencesTests(unittest.TestCase):
         from gui.app import CONFIG_FILE
         self.assertTrue(Path(CONFIG_FILE).is_absolute())
 
+    def test_modo_e_limite_das_listas_persistem(self):
+        import tempfile
+        from gui import app
+        with tempfile.TemporaryDirectory() as pasta:
+            with patch.object(app, "CONFIG_FILE", str(Path(pasta) / "config.json")):
+                app.salvar_config("EPUB", "", False, modo_lista_livros="continuo",
+                                  limite_resultados_livros=0)
+                config = app.carregar_config()
+                self.assertEqual(config["modo_lista_livros"], "continuo")
+                self.assertEqual(config["limite_resultados_livros"], 0)
+
     def test_sair_fecha_janela(self):
         from gui.app import MainFrame
         janela = Mock()
