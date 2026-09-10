@@ -6,6 +6,9 @@ from xml.etree import ElementTree
 
 import requests
 
+from books.cache import cachear_paginas
+from books.catalog import CapacidadesCatalogo
+from books.http import criar_cliente
 from books.models import Livro, PaginaLivros, HEADERS
 from books.urls import validar_url_download
 
@@ -17,12 +20,14 @@ DCTERMS = "{http://purl.org/dc/terms/}"
 
 class Gutenberg:
     nome = "Project Gutenberg"
+    capacidades = CapacidadesCatalogo(frozenset(MIMES), frozenset({"pt", "en", "es", "fr"}), True)
     def __init__(self, http=None):
-        self.http = http or requests
+        self.http = http or criar_cliente()
 
     def buscar(self, termo, formato="epub", pagina=0, idioma=""):
         return self.buscar_pagina(termo, formato, pagina, idioma).livros
 
+    @cachear_paginas()
     def buscar_pagina(self, termo, formato="epub", pagina=0, idioma=""):
         if not termo.strip():
             raise ValueError("Digite o título ou autor do livro.")
@@ -33,6 +38,7 @@ class Gutenberg:
             parametros["languages"] = idioma
         return self._consultar(parametros, formato)
 
+    @cachear_paginas()
     def explorar_pagina(self, formato="epub", pagina=0, idioma="pt", topico=""):
         if formato not in MIMES or pagina < 0:
             raise ValueError("Formato ou página inválidos.")

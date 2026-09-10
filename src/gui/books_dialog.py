@@ -210,6 +210,7 @@ class BooksDialog(wx.Dialog):
         self.Bind(wx.EVT_CLOSE, self.on_fechar)
         self.Bind(wx.EVT_CHAR_HOOK, self.on_tecla)
         self.sons.vincular(self)
+        self._atualizar_filtros_fonte()
         self._ocupacao(False)
         self.CenterOnParent()
         self.termo.SetFocus()
@@ -289,8 +290,8 @@ class BooksDialog(wx.Dialog):
                 return
             self.topico_explorar = TEMAS[dialogo.GetStringSelection()]
         self.explorando = True
-        self.fonte_escolha.SetStringSelection("Project Gutenberg")
-        self.fonte = FONTES["Project Gutenberg"]()
+        self.fonte_escolha.SetStringSelection("Todas as fontes")
+        self.fonte = FONTES["Todas as fontes"]()
         self.consulta = ("", self.formato.GetStringSelection().lower(),
                          IDIOMAS[self.idioma.GetStringSelection()])
         self._buscar_pagina(0)
@@ -298,6 +299,7 @@ class BooksDialog(wx.Dialog):
     def on_fonte(self, event):
         self.explorando = False
         self.fonte = FONTES[self.fonte_escolha.GetStringSelection()]()
+        self._atualizar_filtros_fonte()
         self.consulta = None
         self.pagina = 0
         self.tem_proxima = False
@@ -305,6 +307,29 @@ class BooksDialog(wx.Dialog):
         self.resultados.Clear()
         self.status.SetValue("Fonte alterada. Pressione Pesquisar para consultar o título ou autor informado.")
         self._ocupacao(False)
+
+    def _atualizar_filtros_fonte(self):
+        nome = self.fonte_escolha.GetStringSelection() or "Todas as fontes"
+        atual_formato = self.formato.GetStringSelection() or "EPUB"
+        atual_idioma = self.idioma.GetStringSelection() or "Português"
+        if nome == "Todas as fontes":
+            capacidades = [getattr(fabrica, "capacidades", None)
+                           for fabrica in FONTES.values() if fabrica is not TodasFontes]
+            formatos = set().union(*(cap.formatos for cap in capacidades if cap))
+            idiomas = set().union(*(cap.idiomas for cap in capacidades if cap))
+        else:
+            cap = getattr(FONTES[nome], "capacidades", None)
+            formatos = set(cap.formatos) if cap else {"epub", "txt", "pdf"}
+            idiomas = set(cap.idiomas) if cap else {"pt", "en", "es", "fr"}
+        opcoes_formato = [item for item in ("EPUB", "TXT", "PDF") if item.lower() in formatos]
+        self.formato.Set(opcoes_formato)
+        self.formato.SetStringSelection(atual_formato if atual_formato in opcoes_formato
+                                        else opcoes_formato[0])
+        opcoes_idioma = [rotulo for rotulo, codigo in IDIOMAS.items()
+                         if not codigo or codigo in idiomas]
+        self.idioma.Set(opcoes_idioma)
+        self.idioma.SetStringSelection(atual_idioma if atual_idioma in opcoes_idioma
+                                       else opcoes_idioma[0])
 
     def _buscar_pagina(self, pagina):
         if self.ocupado or self.consulta is None:

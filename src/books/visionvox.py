@@ -4,6 +4,9 @@ from urllib.parse import unquote, urljoin, urlsplit, parse_qs
 
 import requests
 from bs4 import BeautifulSoup
+from books.cache import cachear_paginas
+from books.catalog import CapacidadesCatalogo
+from books.http import criar_cliente
 from books.models import Livro, PaginaLivros, FORMATOS, HEADERS
 from books.urls import validar_url_download
 from scrapers.search_relevance import normalizar, termos_significativos
@@ -37,12 +40,14 @@ def extrair_livros(html):
 
 class Visionvox:
     nome = "Visionvox"
+    capacidades = CapacidadesCatalogo(frozenset(FORMATOS), frozenset({"pt"}))
     def __init__(self, http=None):
-        self.http = http or requests
+        self.http = http or criar_cliente()
 
     def buscar(self, termo, formato="epub", pagina=0, idioma=""):
         return self.buscar_pagina(termo, formato, pagina, idioma).livros
 
+    @cachear_paginas()
     def buscar_pagina(self, termo, formato="epub", pagina=0, idioma=""):
         if not termo.strip():
             raise ValueError("Digite o título ou autor do livro.")

@@ -3,6 +3,9 @@ from urllib.parse import urlencode
 
 import requests
 
+from books.cache import cachear_paginas
+from books.catalog import CapacidadesCatalogo
+from books.http import criar_cliente
 from books.models import FORMATOS, HEADERS, Livro, PaginaLivros
 from books.urls import validar_url_download
 
@@ -12,13 +15,15 @@ FORMATOS_EXPORT = {"epub": "epub-3", "pdf": "pdf"}
 
 class Wikisource:
     nome = "Wikisource"
+    capacidades = CapacidadesCatalogo(frozenset(FORMATOS_EXPORT), frozenset(IDIOMAS))
 
     def __init__(self, http=None):
-        self.http = http or requests
+        self.http = http or criar_cliente()
 
     def buscar(self, termo, formato="epub", pagina=0, idioma=""):
         return self.buscar_pagina(termo, formato, pagina, idioma).livros
 
+    @cachear_paginas()
     def buscar_pagina(self, termo, formato="epub", pagina=0, idioma=""):
         termo = termo.strip()
         if not termo:

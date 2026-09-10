@@ -103,6 +103,13 @@ class SourcesTests(unittest.TestCase):
         self.assertIn("EPUB e PDF", pagina.aviso)
         self.http.get.assert_not_called()
 
+    def test_consulta_identica_usa_cache_curto(self):
+        self.resposta.json.return_value = {"query": {"search": [{"title": "Dom Casmurro"}]}}
+        fonte = Wikisource(self.http)
+        fonte.buscar_pagina("Dom Casmurro", "epub", 0, "pt")
+        fonte.buscar_pagina("Dom Casmurro", "epub", 0, "pt")
+        self.assertEqual(self.http.get.call_count, 1)
+
     def test_internet_archive_retorna_apenas_arquivo_publico_no_formato(self):
         busca = Mock()
         busca.json.return_value = {"response": {"numFound": 1, "docs": [{
@@ -130,6 +137,28 @@ class SourcesTests(unittest.TestCase):
         }
         item = {"identifier": "livro", "title": "Livro"}
         self.assertIsNone(InternetArchive(self.http)._obter_livro(item, "pdf"))
+
+    def test_descoberta_internet_archive_ordena_por_downloads(self):
+        self.resposta.json.return_value = {"response": {"numFound": 0, "docs": []}}
+        InternetArchive(self.http).explorar_pagina("epub", 0, "pt", "fiction")
+        parametros = self.http.get.call_args.kwargs["params"]
+        self.assertEqual(parametros["sort[]"], "downloads desc")
+        self.assertIn("language:por", parametros["q"])
+
+    def test_descoberta_combina_fontes_capazes_e_ignora_as_demais(self):
+        primeira, segunda, sem_descoberta = Mock(), Mock(), Mock()
+        for fonte, nome in ((primeira, "Primeira"), (segunda, "Segunda")):
+            fonte.nome = nome
+            fonte.capacidades = Mock(descoberta=True, formatos={"epub"}, idiomas={"pt"})
+        sem_descoberta.nome = "Busca apenas"
+        sem_descoberta.capacidades = Mock(descoberta=False, formatos={"epub"}, idiomas={"pt"})
+        primeira.explorar_pagina.return_value = PaginaLivros([
+            Livro("A", "https://visionvox.net/a.epub", "epub", "Primeira")], False)
+        segunda.explorar_pagina.return_value = PaginaLivros([
+            Livro("B", "https://www.gutenberg.org/b.epub", "epub", "Segunda")], False)
+        pagina = TodasFontes([primeira, segunda, sem_descoberta]).explorar_pagina("epub", 0, "pt")
+        self.assertEqual([livro.origem for livro in pagina.livros], ["Primeira", "Segunda"])
+        sem_descoberta.explorar_pagina.assert_not_called()
 
     def test_formato_indisponivel_e_link_externo_nao_viram_download(self):
         self.resposta.json.return_value = {"results": [

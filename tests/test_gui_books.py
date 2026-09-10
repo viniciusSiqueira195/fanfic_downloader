@@ -181,8 +181,19 @@ class BooksGuiTests(unittest.TestCase):
                 dialogo.on_descobrir(None)
             self.assertTrue(dialogo.explorando)
             self.assertEqual(dialogo.topico_explorar, "fiction")
-            self.assertEqual(dialogo.fonte_escolha.GetStringSelection(), "Project Gutenberg")
+            self.assertEqual(dialogo.fonte_escolha.GetStringSelection(), "Todas as fontes")
             self.assertEqual(dialogo.consulta, ("", "epub", "pt"))
             dialogo._buscar_pagina.assert_called_once_with(0)
+        finally:
+            dialogo.Destroy()
+
+    def test_wikisource_remove_txt_dos_formatos_disponiveis(self):
+        from gui.books_dialog import BooksDialog
+        dialogo = BooksDialog(None, sons=Mock())
+        try:
+            dialogo.fonte_escolha.SetStringSelection("Wikisource")
+            dialogo.on_fonte(None)
+            self.assertEqual([dialogo.formato.GetString(i)
+                              for i in range(dialogo.formato.GetCount())], ["EPUB", "PDF"])
         finally:
             dialogo.Destroy()

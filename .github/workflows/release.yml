@@ -49,6 +49,14 @@ jobs:
       - name: Compilar o executável (PyInstaller)
         run: python -m PyInstaller --clean --noconfirm FanficDownloader.spec
 
+      - name: Testar o pacote compilado
+        run: |
+          $processo = Start-Process "dist/FanficDownloader/FanficDownloader.exe" -ArgumentList "--self-test" -Wait -PassThru -WindowStyle Hidden
+          if ($processo.ExitCode -ne 0) {
+            Write-Error "O executavel compilado falhou no autoteste (codigo $($processo.ExitCode))."
+            exit 1
+          }
+
       - name: Montar o zip da release
         # O updater.py extrai esse zip por cima da pasta do app, preservando
         # o config.json do usuário — por isso o config.json NÃO entra no zip.

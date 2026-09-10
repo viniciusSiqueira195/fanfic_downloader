@@ -184,15 +184,57 @@ def _substituir_arquivo(source_path, destination_path):
 
 
 def _copy_update_tree(source_root, target_root):
-    for source_path in source_root.rglob("*"):
-        if source_path.is_dir():
-            continue
-        relative_path = source_path.relative_to(source_root)
-        if _is_preserved(relative_path):
-            continue
-        destination_path = target_root / relative_path
-        destination_path.parent.mkdir(parents=True, exist_ok=True)
-        _substituir_arquivo(source_path, destination_path)
+    source_root, target_root = Path(source_root), Path(target_root)
+    with tempfile.TemporaryDirectory(prefix="fanfic-downloader-backup-") as pasta_backup:
+        backup_root = Path(pasta_backup)
+        alterados, criados = [], []
+        try:
+            for source_path in source_root.rglob("*"):
+                if source_path.is_dir():
+                    continue
+                relative_path = source_path.relative_to(source_root)
+                if _is_preserved(relative_path):
+                    continue
+                destination_path = target_root / relative_path
+                destination_path.parent.mkdir(parents=True, exist_ok=True)
+                if destination_path.exists():
+                    backup_path = backup_root / relative_path
+                    backup_path.parent.mkdir(parents=True, exist_ok=True)
+                    shutil.copy2(destination_path, backup_path)
+                    alterados.append((backup_path, destination_path))
+                else:
+                    criados.append(destination_path)
+                _substituir_arquivo(source_path, destination_path)
+        except Exception:
+            for caminho in reversed(criados):
+                try:
+                    caminho.unlink(missing_ok=True)
+                except OSError:
+                    pass
+            for backup_path, destination_path in reversed(alterados):
+                _substituir_arquivo(backup_path, destination_path)
+            raise
+
+
+def _extrair_zip_seguro(arquivo, destino, limite_bytes=1024 * 1024 * 1024,
+                        limite_arquivos=20000):
+    """Extrai apenas caminhos relativos comuns e limita bombas de descompressão."""
+    destino = Path(destino).resolve()
+    membros = arquivo.infolist()
+    if len(membros) > limite_arquivos or sum(item.file_size for item in membros) > limite_bytes:
+        raise ValueError("O pacote de atualização excede os limites de segurança.")
+    for membro in membros:
+        nome = Path(membro.filename.replace("/", os.sep))
+        modo = membro.external_attr >> 16
+        if (nome.is_absolute() or nome.drive or ".." in nome.parts
+                or (modo & 0o170000) == 0o120000):
+            raise ValueError("O pacote de atualização contém um caminho inseguro.")
+        alvo = (destino / nome).resolve()
+        try:
+            alvo.relative_to(destino)
+        except ValueError as erro:
+            raise ValueError("O pacote de atualização tenta gravar fora do aplicativo.") from erro
+    arquivo.extractall(destino)
 
 
 def limpar_residuos_atualizacao():
@@ -240,7 +282,7 @@ def baixar_e_aplicar_atualizacao(update_info, progresso_callback=None):
         with tempfile.TemporaryDirectory() as extract_dir:
             extract_path = Path(extract_dir)
             with zipfile.ZipFile(archive_path, "r") as archive:
-                archive.extractall(extract_path)
+                _extrair_zip_seguro(archive, extract_path)
             payload_root = _extract_payload_root(extract_path)
             _copy_update_tree(payload_root, application_root)
 

@@ -1,5 +1,6 @@
 """Registro e coordenação concorrente dos catálogos disponíveis."""
 from concurrent.futures import FIRST_COMPLETED, ThreadPoolExecutor, wait
+from time import monotonic
 import requests
 
 from books.models import PaginaLivros
@@ -17,6 +18,7 @@ FONTES_INDIVIDUAIS = {
     "Internet Archive": InternetArchive,
 }
 MINIMO_RESULTADOS_RAPIDOS = 5
+MAX_ESPERA_DESCOBERTA = 18
 
 
 def _pontuacao(livro, termo):
@@ -28,11 +30,14 @@ def _pontuacao(livro, termo):
 
 
 def _duplicado(livro, existentes):
-    tokens = set(termos_significativos(livro.titulo.rsplit(".", 1)[0]))
+    titulo_livro = livro.titulo.split(" — ", 1)[0] if livro.autor else livro.titulo
+    tokens = set(termos_significativos(titulo_livro.rsplit(".", 1)[0]))
     if not tokens:
         return False
     for existente in existentes:
-        outros = set(termos_significativos(existente.titulo.rsplit(".", 1)[0]))
+        titulo_existente = (existente.titulo.split(" — ", 1)[0]
+                            if existente.autor else existente.titulo)
+        outros = set(termos_significativos(titulo_existente.rsplit(".", 1)[0]))
         uniao = tokens | outros
         if livro.formato == existente.formato and uniao and len(tokens & outros) / len(uniao) >= .8:
             return True
@@ -41,6 +46,7 @@ def _duplicado(livro, existentes):
 
 class TodasFontes:
     nome = "Todas as fontes"
+    capacidades = None
 
     def __init__(self, fontes=None):
         self.fontes = fontes or [fabrica() for fabrica in FONTES_INDIVIDUAIS.values()]
@@ -103,6 +109,54 @@ class TodasFontes:
             aviso = " Algumas fontes falharam: " + "; ".join(erros) if erros else ""
         livros.sort(key=lambda livro: _pontuacao(livro, termo), reverse=True)
         return PaginaLivros(livros, tem_proxima, aviso)
+
+    def explorar_pagina(self, formato="epub", pagina=0, idioma="pt", topico=""):
+        fontes = [fonte for fonte in self.fontes
+                  if getattr(getattr(fonte, "capacidades", None), "descoberta", False)
+                  and formato in fonte.capacidades.formatos
+                  and (not idioma or idioma in fonte.capacidades.idiomas)]
+        if not fontes:
+            return PaginaLivros([], False, " Nenhuma fonte oferece descoberta com esses filtros.")
+        respostas, erros = [], []
+        executor = ThreadPoolExecutor(max_workers=len(fontes), thread_name_prefix="descoberta")
+        tarefas = {executor.submit(fonte.explorar_pagina, formato, pagina, idioma, topico): fonte
+                   for fonte in fontes}
+        pendentes = set(tarefas)
+        limite = monotonic() + MAX_ESPERA_DESCOBERTA
+        try:
+            while pendentes and monotonic() < limite:
+                concluidas, pendentes = wait(pendentes, timeout=max(0, min(.2, limite - monotonic())),
+                                             return_when=FIRST_COMPLETED)
+                for tarefa in concluidas:
+                    fonte = tarefas[tarefa]
+                    try:
+                        respostas.append((fonte, tarefa.result()))
+                    except (requests.RequestException, ValueError) as erro:
+                        erros.append(f"{fonte.nome}: {erro}")
+            for tarefa in pendentes:
+                tarefa.cancel()
+                erros.append(f"{tarefas[tarefa].nome}: tempo limite atingido")
+        finally:
+            executor.shutdown(wait=False, cancel_futures=True)
+        livros, vistos = [], set()
+        tem_proxima = False
+        por_nome = {fonte.nome: resultado for fonte, resultado in respostas}
+        for fonte in fontes:
+            resultado = por_nome.get(fonte.nome)
+            if resultado is None:
+                continue
+            tem_proxima = tem_proxima or resultado.tem_proxima
+            for livro in resultado.livros:
+                if livro.url.casefold() not in vistos and not _duplicado(livro, livros):
+                    vistos.add(livro.url.casefold())
+                    livros.append(livro)
+        # Catálogos que informam popularidade já chegam ordenados; intercala as fontes
+        # para uma biblioteca não ocupar sozinha toda a primeira tela.
+        grupos = [[livro for livro in livros if livro.origem == fonte.nome] for fonte in fontes]
+        intercalados = [grupo[indice] for indice in range(max(map(len, grupos), default=0))
+                        for grupo in grupos if indice < len(grupo)]
+        aviso = " Algumas fontes falharam: " + "; ".join(erros) if erros else ""
+        return PaginaLivros(intercalados, tem_proxima, aviso)
 
     def verificar_saude(self):
         estados = []

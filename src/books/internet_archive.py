@@ -4,6 +4,9 @@ from urllib.parse import quote
 
 import requests
 
+from books.cache import cachear_paginas
+from books.catalog import CapacidadesCatalogo
+from books.http import criar_cliente
 from books.models import FORMATOS, HEADERS, Livro, PaginaLivros
 from books.urls import validar_url_download
 
@@ -23,13 +26,15 @@ def _texto(valor):
 
 class InternetArchive:
     nome = "Internet Archive"
+    capacidades = CapacidadesCatalogo(frozenset(FORMATOS_ARQUIVO), frozenset(IDIOMAS), True)
 
     def __init__(self, http=None):
-        self.http = http or requests
+        self.http = http or criar_cliente()
 
     def buscar(self, termo, formato="epub", pagina=0, idioma=""):
         return self.buscar_pagina(termo, formato, pagina, idioma).livros
 
+    @cachear_paginas()
     def buscar_pagina(self, termo, formato="epub", pagina=0, idioma=""):
         termo = termo.strip()
         if not termo:
@@ -41,11 +46,30 @@ class InternetArchive:
                     'AND (licenseurl:* OR possible-copyright-status:"NOT_IN_COPYRIGHT")')
         if idioma in IDIOMAS:
             consulta += f" AND language:{IDIOMAS[idioma]}"
+        return self._consultar(consulta, formato, pagina)
+
+    @cachear_paginas()
+    def explorar_pagina(self, formato="epub", pagina=0, idioma="pt", topico=""):
+        if formato not in FORMATOS or pagina < 0:
+            raise ValueError("Formato ou página inválidos.")
+        consulta = ('mediatype:texts AND (licenseurl:* OR '
+                    'possible-copyright-status:"NOT_IN_COPYRIGHT")')
+        if idioma in IDIOMAS:
+            consulta += f" AND language:{IDIOMAS[idioma]}"
+        if topico:
+            tema = topico.replace('"', " ").replace("\\", " ")
+            consulta += f' AND (subject:"{tema}" OR title:"{tema}")'
+        return self._consultar(consulta, formato, pagina, ordenar=True)
+
+    def _consultar(self, consulta, formato, pagina, ordenar=False):
+        parametros = {"q": consulta, "fl[]": ["identifier", "title", "creator", "language",
+                                                 "description", "licenseurl", "downloads"],
+                      "rows": 10, "page": pagina + 1, "output": "json"}
+        if ordenar:
+            parametros["sort[]"] = "downloads desc"
         resposta = self.http.get(
             "https://archive.org/advancedsearch.php",
-            params={"q": consulta, "fl[]": ["identifier", "title", "creator", "language",
-                                              "description", "licenseurl"],
-                    "rows": 20, "page": pagina + 1, "output": "json"},
+            params=parametros,
             headers=HEADERS, timeout=(5, 15),
         )
         resposta.raise_for_status()
@@ -64,7 +88,7 @@ class InternetArchive:
                 if livro:
                     livros.append(livro)
         total = int(dados.get("response", {}).get("numFound", 0))
-        return PaginaLivros(livros, (pagina + 1) * 20 < total)
+        return PaginaLivros(livros, (pagina + 1) * 10 < total)
 
     def _obter_livro(self, item, formato):
         identificador = str(item.get("identifier", "")).strip()

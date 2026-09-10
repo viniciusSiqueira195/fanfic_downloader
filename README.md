@@ -28,7 +28,8 @@ disponível. O filtro é aplicado pelo catálogo quando a fonte oferece esse rec
 A pesquisa tem páginas; use os botões de página anterior e próxima para navegar.
 **Descobrir livros para baixar** permite navegar pelos mais baixados ou por tema,
 respeitando idioma e formato. Só entram nessa lista itens com um arquivo validável
-no formato escolhido.
+no formato escolhido. A descoberta combina Project Gutenberg e Internet Archive,
+remove obras repetidas e alterna os catálogos para aumentar a variedade.
 O acervo Visionvox é destinado a pessoas com deficiência visual.
 O Gutenberg reúne principalmente clássicos em vários idiomas, pesquisados pela
 [API independente Gutendex](https://gutendex.com/). EPUB e TXT são as opções mais
@@ -71,7 +72,12 @@ já existir, o aplicativo oferece abrir o arquivo, salvar uma cópia numerada ou
 O cancelamento da pesquisa combinada
 é percebido imediatamente; uma conexão já aberta pode terminar em segundo plano
 até seu timeout. Use Tab/Shift+Tab para navegar e Escape para fechar ou solicitar
-cancelamento. A janela ainda precisa de validação prática com NVDA/Narrador.
+cancelamento. O fluxo foi validado manualmente com navegação por teclado e leitor
+de tela durante o desenvolvimento.
+
+Cada fonte declara os formatos e idiomas que oferece; os seletores escondem
+combinações indisponíveis. Consultas idênticas usam um cache em memória de dois
+minutos e as conexões fazem poucas tentativas automáticas para falhas temporárias.
 
 Sites sem catálogo público estável ou que distribuam obras sem autorização não são
 incluídos. Veja o
@@ -104,3 +110,6 @@ tela nem a verificação real das fontes externas.
 O GitHub Actions executa compilação e testes em Windows a cada push na `main` e
 em pull requests. A validação humana está descrita no
 [roteiro de acessibilidade do módulo de livros](docs/teste-acessibilidade-livros.md).
+O fluxo de release também executa um autoteste do pacote compilado antes de
+publicá-lo. O atualizador rejeita caminhos inseguros no ZIP, limita a extração e
+restaura os arquivos anteriores se a aplicação da atualização falhar.

@@ -2,6 +2,7 @@ import sys
 import tempfile
 import unittest
 import zipfile
+from unittest.mock import patch
 from pathlib import Path
 from xml.etree import ElementTree as ET
 
@@ -12,7 +13,8 @@ from converters.normalizacao import normalizar
 from converters.to_epub import salvar_epub
 from converters.to_txt import salvar_txt
 from scrapers.chapter_selection import interpretar_selecao, selecionar_capitulos, SelecaoCapitulosError
-from updater import _is_newer_version, _normalize_sha256
+from updater import (_copy_update_tree, _extrair_zip_seguro, _is_newer_version,
+                     _normalize_sha256)
 
 
 class CoreTests(unittest.TestCase):
@@ -77,3 +79,35 @@ class CoreTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             _normalize_sha256("abc")
         self.assertEqual(_normalize_sha256("sha256:" + "A" * 64), "a" * 64)
+
+    def test_atualizador_rejeita_zip_que_sai_da_pasta(self):
+        with tempfile.TemporaryDirectory() as pasta:
+            zip_path = Path(pasta) / "update.zip"
+            with zipfile.ZipFile(zip_path, "w") as arquivo:
+                arquivo.writestr("../fora.txt", "perigo")
+            with zipfile.ZipFile(zip_path) as arquivo, self.assertRaises(ValueError):
+                _extrair_zip_seguro(arquivo, Path(pasta) / "destino")
+            self.assertFalse((Path(pasta).parent / "fora.txt").exists())
+
+    def test_atualizador_desfaz_copia_parcial(self):
+        with tempfile.TemporaryDirectory() as pasta:
+            raiz = Path(pasta)
+            origem, destino = raiz / "origem", raiz / "destino"
+            origem.mkdir(); destino.mkdir()
+            (origem / "a.txt").write_text("novo", encoding="utf-8")
+            (origem / "b.txt").write_text("falha", encoding="utf-8")
+            (destino / "a.txt").write_text("antigo", encoding="utf-8")
+            from updater import _substituir_arquivo as copiar_real
+            chamadas = [0]
+
+            def falhar_na_segunda(source, target):
+                chamadas[0] += 1
+                if chamadas[0] == 2:
+                    raise OSError("disco cheio")
+                copiar_real(source, target)
+
+            with patch("updater._substituir_arquivo", side_effect=falhar_na_segunda), \
+                    self.assertRaises(OSError):
+                _copy_update_tree(origem, destino)
+            self.assertEqual((destino / "a.txt").read_text(encoding="utf-8"), "antigo")
+            self.assertFalse((destino / "b.txt").exists())
