@@ -4,7 +4,19 @@ Aplicativo acessível em Python para baixar fanfics do Spirit, Wattpad e FanFict
 O aplicativo também verifica releases no GitHub e pode se atualizar automaticamente após validar o hash SHA-256 do pacote.
 Essa checagem pode ser ativada ou desativada nas preferências da tela inicial.
 
-## Executar no Windows
+## Usar a versão portátil no Windows
+
+Baixe o arquivo ZIP da versão mais recente, extraia todo o conteúdo para uma
+pasta comum e abra `FanficDownloader.exe`. O aplicativo não possui instalador e
+não altera o registro do Windows. Mantenha o executável e a pasta `_internal`
+juntos. Preferências e histórico ficam em `config.json`, na mesma pasta, para que
+a instalação possa ser levada para outro computador.
+
+Não execute o programa de dentro do ZIP nem extraia em pastas protegidas, como
+`C:\Windows\System32`, pois o aplicativo precisa gravar suas preferências ao lado
+do executável.
+
+## Executar pelo código-fonte
 
 Na raiz do projeto, em PowerShell, com Python instalado:
 
@@ -25,7 +37,8 @@ controle seguinte, selecione **Todas as fontes**, **Visionvox**,
 TXT ou PDF, filtre o idioma se quiser
 e pesquise. Português vem selecionado inicialmente; **Todos os idiomas** continua
 disponível. O filtro é aplicado pelo catálogo quando a fonte oferece esse recurso.
-A pesquisa tem páginas; use os botões de página anterior e próxima para navegar.
+A lista carrega mais resultados automaticamente ou quando a seleção se aproxima
+do final, conforme o modo escolhido nas configurações.
 **Descobrir livros para baixar** permite navegar pelos mais baixados ou por tema,
 incluindo fantasia,
 respeitando idioma e formato. Só entram nessa lista itens com um arquivo validável

@@ -58,7 +58,7 @@ versao_info = VSVersionInfo(
         StringFileInfo([
             StringTable('041604B0', [
                 StringStruct('ProductName', 'Fanfic Downloader'),
-                StringStruct('FileDescription', 'Fanfic Downloader — baixador de fanfics acessível'),
+                StringStruct('FileDescription', 'Fanfic Downloader — fanfics e livros acessíveis'),
                 StringStruct('FileVersion', APP_VERSION),
                 StringStruct('ProductVersion', APP_VERSION),
                 StringStruct('InternalName', 'FanficDownloader'),

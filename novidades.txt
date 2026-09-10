@@ -1,3 +1,31 @@
+NOVIDADES DA VERSÃO 1.2.0:
+
+LIVROS PARA BAIXAR:
+- Pesquise livros por título ou autor no Visionvox, Project Gutenberg, Wikisource e Internet Archive.
+- Escolha uma fonte específica ou consulte todas ao mesmo tempo.
+- Filtre por formato e idioma e baixe EPUB, PDF ou TXT quando a fonte oferecer.
+- Descubra livros por popularidade e temas nos catálogos que possuem esses dados.
+- Navegue pelos EPUBs adicionados recentemente no Visionvox sem resultados inferidos por gênero.
+
+UMA INTERFACE MAIS LIMPA E ACESSÍVEL:
+- A tela de pesquisa dá lugar à lista enquanto os resultados são exibidos.
+- O foco informa imediatamente que a pesquisa começou, sem bloquear a janela.
+- Enter ou o menu de contexto abre as ações de baixar e ler detalhes ou sinopse.
+- Histórico de downloads, escolha de pasta e carregamento contínuo ou manual.
+- Configurações organizadas nas guias Geral, Livros e Sons.
+- Sons suaves de abertura, navegação e confirmação, com uma única opção para ativá-los ou desativá-los.
+
+CONFIABILIDADE:
+- Downloads usam arquivos temporários na pasta escolhida e não dependem de C:\Windows\System32.
+- O atualizador valida o SHA-256 do pacote, protege a configuração e desfaz uma atualização incompleta.
+- O pacote continua portátil: basta extrair a pasta e abrir FanficDownloader.exe.
+
+FANFICS:
+- Continuam disponíveis Spirit Fanfics, Wattpad, FanFiction.net e PlusFiction, com pesquisa e exportação em PDF, EPUB ou TXT.
+- O Spirit reutiliza a sessão local após o primeiro login; a senha não é armazenada.
+
+========================================================================
+
 NOVIDADES DA VERSÃO 1.1.0:
 
 O SPIRIT ESTÁ DE VOLTA:
