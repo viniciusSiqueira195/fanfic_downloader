@@ -1,0 +1,14 @@
+Interface Sounds 1.0
+
+Created and distributed by Kenney (https://kenney.nl/)
+Creation date: 2020-02-11
+
+License: Creative Commons Zero (CC0)
+https://creativecommons.org/publicdomain/zero/1.0/
+
+This content is free to use in personal, educational and commercial projects.
+Attribution to Kenney is appreciated but not required.
+
+Files used by Fanfic Downloader:
+- Audio/select_001.ogg, converted to navigate.wav (PCM WAV)
+- Audio/confirmation_001.ogg, converted to confirm.wav (PCM WAV)

@@ -73,6 +73,7 @@ versao_info = VSVersionInfo(
 playwright_datas, playwright_binaries, playwright_hiddenimports = collect_all('playwright')
 
 datas = [
+    (os.path.join(SPECPATH, 'assets', 'sounds'), 'assets/sounds'),
     *playwright_datas,
     *collect_data_files('camoufox'),
     *collect_data_files('browserforge'),

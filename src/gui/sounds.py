@@ -1,31 +1,21 @@
-"""Tons originais curtos, sem arquivos externos nem reprodução bloqueante."""
-import io
-import math
-import struct
+"""Feedback de interface com sons CC0 curtos da Kenney."""
+import sys
 import time
-import wave
+from pathlib import Path
 
 import wx
 import wx.adv
 
 
-def gerar_tom(frequencias, duracao):
-    taxa = 22050
-    amostras = int(taxa * duracao)
-    pcm = bytearray()
-    for i in range(amostras):
-        t = i / taxa
-        # Envelope suave evita estalos; pico de 7% da escala digital.
-        envelope = math.sin(math.pi * i / amostras) ** 2
-        valor = sum(math.sin(2 * math.pi * f * t) for f in frequencias) / len(frequencias)
-        pcm.extend(struct.pack("<h", int(32767 * 0.07 * envelope * valor)))
-    buffer = io.BytesIO()
-    with wave.open(buffer, "wb") as arquivo:
-        arquivo.setnchannels(1)
-        arquivo.setsampwidth(2)
-        arquivo.setframerate(taxa)
-        arquivo.writeframes(pcm)
-    return buffer.getvalue()
+ARQUIVOS = {
+    "navegar": "navigate.wav",
+    "confirmar": "confirm.wav",
+}
+
+
+def caminho_som(tipo):
+    base = Path(getattr(sys, "_MEIPASS", Path(__file__).resolve().parents[2]))
+    return base / "assets" / "sounds" / ARQUIVOS[tipo]
 
 
 class FeedbackSonoro:
@@ -43,9 +33,8 @@ class FeedbackSonoro:
         self._proxima_navegacao = agora + (0.12 if tipo == "confirmar" else 0.065)
         try:
             if tipo not in self._sons:
-                frequencias, duracao = ((560,), 0.035) if tipo == "navegar" else ((660, 880), 0.09)
-                som = wx.adv.Sound()
-                if not som.CreateFromData(gerar_tom(frequencias, duracao)):
+                som = wx.adv.Sound(str(caminho_som(tipo)))
+                if not som.IsOk():
                     return
                 self._sons[tipo] = som
             self._sons[tipo].Play(wx.adv.SOUND_ASYNC)
