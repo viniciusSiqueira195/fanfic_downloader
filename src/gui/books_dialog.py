@@ -17,6 +17,15 @@ IDIOMAS = {
     "Espanhol": "es",
     "Francês": "fr",
 }
+TEMAS = {
+    "Mais baixados": "",
+    "Ficção": "fiction",
+    "Romance": "romance",
+    "Mistério": "mystery",
+    "Ficção científica": "science fiction",
+    "Literatura infantil": "children",
+    "História": "history",
+}
 
 
 class SinopseDialog(wx.Dialog):
@@ -110,6 +119,8 @@ class BooksDialog(wx.Dialog):
         self.livros = []
         self.pagina = 0
         self.consulta = None
+        self.explorando = False
+        self.topico_explorar = ""
         self.ultima_pasta = ""
         self.pasta_salva = pasta
         self.ao_escolher_pasta = ao_escolher_pasta
@@ -144,6 +155,8 @@ class BooksDialog(wx.Dialog):
         self.idioma = wx.Choice(self.painel_busca, choices=list(IDIOMAS), name="Idioma dos livros")
         self.idioma.SetStringSelection("Português")
         busca_sizer.Add(self.idioma, 0, wx.EXPAND | wx.ALL, 8)
+        self.btn_descobrir = wx.Button(self.painel_busca, label="&Descobrir livros para baixar...")
+        busca_sizer.Add(self.btn_descobrir, 0, wx.ALL, 8)
         botoes_busca = wx.BoxSizer(wx.HORIZONTAL)
         self.pesquisar = wx.Button(self.painel_busca, label="&Pesquisar")
         self.btn_historico = wx.Button(self.painel_busca, label="&Histórico de downloads")
@@ -182,6 +195,7 @@ class BooksDialog(wx.Dialog):
         sizer.Add(self.painel_resultados, 1, wx.EXPAND)
         self.SetSizer(sizer)
         self.pesquisar.Bind(wx.EVT_BUTTON, self.on_pesquisar)
+        self.btn_descobrir.Bind(wx.EVT_BUTTON, self.on_descobrir)
         self.termo.Bind(wx.EVT_TEXT_ENTER, self.on_pesquisar)
         self.fonte_escolha.Bind(wx.EVT_CHOICE, self.on_fonte)
         self.resultados.Bind(wx.EVT_LISTBOX_DCLICK, self.on_menu_acoes)
@@ -214,7 +228,7 @@ class BooksDialog(wx.Dialog):
     def _ocupacao(self, ocupado):
         self.ocupado = ocupado
         for controle in (self.fonte_escolha, self.termo, self.formato, self.idioma,
-                         self.pesquisar, self.resultados):
+                         self.pesquisar, self.btn_descobrir, self.resultados):
             controle.Enable(not ocupado)
         self.anterior.Enable(not ocupado and self.consulta is not None and self.pagina > 0)
         self.proxima.Enable(not ocupado and self.tem_proxima)
@@ -258,11 +272,31 @@ class BooksDialog(wx.Dialog):
             wx.MessageBox("Digite o título ou autor do livro.", "Pesquisa", parent=self)
             self.termo.SetFocus()
             return
+        self.explorando = False
         self.consulta = (self.termo.GetValue().strip(), self.formato.GetStringSelection().lower(),
                          IDIOMAS[self.idioma.GetStringSelection()])
         self._buscar_pagina(0)
 
+    def on_descobrir(self, event):
+        if self.ocupado:
+            return
+        with wx.SingleChoiceDialog(
+                self, "Escolha o tema dos livros disponíveis para download.",
+                "Descobrir livros", list(TEMAS)) as dialogo:
+            dialogo.SetSelection(0)
+            if dialogo.ShowModal() != wx.ID_OK:
+                self.btn_descobrir.SetFocus()
+                return
+            self.topico_explorar = TEMAS[dialogo.GetStringSelection()]
+        self.explorando = True
+        self.fonte_escolha.SetStringSelection("Project Gutenberg")
+        self.fonte = FONTES["Project Gutenberg"]()
+        self.consulta = ("", self.formato.GetStringSelection().lower(),
+                         IDIOMAS[self.idioma.GetStringSelection()])
+        self._buscar_pagina(0)
+
     def on_fonte(self, event):
+        self.explorando = False
         self.fonte = FONTES[self.fonte_escolha.GetStringSelection()]()
         self.consulta = None
         self.pagina = 0
@@ -277,7 +311,8 @@ class BooksDialog(wx.Dialog):
             return
         self._mostrar_tela(True)
         termo, formato, idioma = self.consulta
-        self.status.SetValue(f"Pesquisando em {self.fonte_escolha.GetStringSelection()}, página {pagina + 1}...")
+        acao = "Explorando livros disponíveis" if self.explorando else "Pesquisando"
+        self.status.SetValue(f"{acao} em {self.fonte_escolha.GetStringSelection()}, página {pagina + 1}...")
         parciais = []
 
         def atualizar_fonte(nome, estado, quantidade, livros):
@@ -293,7 +328,10 @@ class BooksDialog(wx.Dialog):
             wx.CallAfter(self.status.SetValue, texto)
 
         def buscar():
-            if isinstance(self.fonte, TodasFontes):
+            if self.explorando:
+                livros = self.fonte.explorar_pagina(
+                    formato, pagina, idioma, self.topico_explorar)
+            elif isinstance(self.fonte, TodasFontes):
                 livros = self.fonte.buscar_pagina(
                     termo, formato, pagina, idioma, atualizar_fonte, self.cancel_event)
             else:
@@ -489,7 +527,10 @@ class BooksDialog(wx.Dialog):
             self.on_historico(event)
             return
         if tecla == wx.WXK_F5:
-            self.on_pesquisar(event)
+            if self.explorando:
+                self._buscar_pagina(0)
+            else:
+                self.on_pesquisar(event)
             return
         if tecla in (wx.WXK_RETURN, wx.WXK_NUMPAD_ENTER) and foco in (self.termo, self.resultados):
             self.sons.tocar("confirmar")

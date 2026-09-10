@@ -48,6 +48,14 @@ class SourcesTests(unittest.TestCase):
         Gutenberg(self.http).buscar_pagina("amor", "epub", 0, "pt")
         self.assertEqual(self.http.get.call_args.kwargs["params"]["languages"], "pt")
 
+    def test_gutenberg_explora_apenas_formato_baixavel_por_popularidade(self):
+        self.resposta.json.return_value = {"results": [], "next": None}
+        Gutenberg(self.http).explorar_pagina("epub", 1, "pt", "fiction")
+        self.assertEqual(self.http.get.call_args.kwargs["params"], {
+            "mime_type": "application/epub+zip", "page": 2, "sort": "popular",
+            "languages": "pt", "topic": "fiction",
+        })
+
     def test_visionvox_nao_e_consultado_para_outro_idioma(self):
         pagina = Visionvox(self.http).buscar_pagina("love", "epub", 0, "en")
         self.assertEqual(pagina.livros, [])

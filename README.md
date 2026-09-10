@@ -25,6 +25,9 @@ controle seguinte, selecione **Todas as fontes**, **Visionvox** ou
 e pesquise. Português vem selecionado inicialmente; **Todos os idiomas** continua
 disponível. O filtro é aplicado pelo catálogo quando a fonte oferece esse recurso.
 A pesquisa tem páginas; use os botões de página anterior e próxima para navegar.
+**Descobrir livros para baixar** permite navegar pelos mais baixados ou por tema,
+respeitando idioma e formato. Só entram nessa lista itens com um arquivo validável
+no formato escolhido.
 O acervo Visionvox é destinado a pessoas com deficiência visual.
 O Gutenberg reúne principalmente clássicos em vários idiomas, pesquisados pela
 [API independente Gutendex](https://gutendex.com/). EPUB e TXT são as opções mais

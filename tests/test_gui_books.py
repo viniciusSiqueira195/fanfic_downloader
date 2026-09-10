@@ -164,3 +164,25 @@ class BooksGuiTests(unittest.TestCase):
             self.assertIs(wx.Window.FindFocus(), dialogo.termo)
         finally:
             dialogo.Destroy()
+
+    def test_descobrir_abre_catalogo_baixavel_com_filtros_atuais(self):
+        import wx
+        from gui.books_dialog import BooksDialog
+        from unittest.mock import patch
+        dialogo = BooksDialog(None, sons=Mock())
+        seletor = Mock()
+        seletor.__enter__ = Mock(return_value=seletor)
+        seletor.__exit__ = Mock(return_value=False)
+        seletor.ShowModal.return_value = wx.ID_OK
+        seletor.GetStringSelection.return_value = "Ficção"
+        dialogo._buscar_pagina = Mock()
+        try:
+            with patch("gui.books_dialog.wx.SingleChoiceDialog", return_value=seletor):
+                dialogo.on_descobrir(None)
+            self.assertTrue(dialogo.explorando)
+            self.assertEqual(dialogo.topico_explorar, "fiction")
+            self.assertEqual(dialogo.fonte_escolha.GetStringSelection(), "Project Gutenberg")
+            self.assertEqual(dialogo.consulta, ("", "epub", "pt"))
+            dialogo._buscar_pagina.assert_called_once_with(0)
+        finally:
+            dialogo.Destroy()

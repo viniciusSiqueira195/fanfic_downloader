@@ -1,13 +1,15 @@
-# Proposta: explorar livros sugeridos
+# Explorar livros sugeridos
+
+A primeira versão está implementada com o Gutendex: mostra obras populares ou por
+tema, respeita idioma e formato e descarta qualquer resultado sem URL de download
+aceita. As fontes futuras devem conservar essa garantia.
 
 ## Experiência acessível
 
-O menu **Explorar catálogo** deve abrir uma tela própria, sem misturar pesquisa e
-downloads. A ordem sugerida é: idioma, tema, fonte e ordenação. Depois de confirmar,
+O comando **Descobrir livros para baixar** abre a escolha de tema sem misturar pesquisa e
+downloads. Ele aproveita o idioma e o formato selecionados. Depois de confirmar,
 a tela de filtros desaparece e surge uma lista paginada. Cada item informa título,
-autor, idioma, disponibilidade e fonte. Enter abre ações como **Ler detalhes**,
-**Baixar**, **Abrir para leitura** e **Adicionar à lista de leitura**, mostrando
-somente as ações realmente disponíveis.
+autor, idioma e fonte. Enter abre **Ler detalhes** ou **Baixar**.
 
 A primeira versão não precisa criar um perfil do usuário. Ela pode listar obras
 populares por tema e idioma, alternar páginas e esconder itens já baixados. Uma
@@ -32,10 +34,9 @@ opção para limpar esses dados.
 
 ## Arquitetura
 
-Fontes de descoberta devem retornar metadados e uma disponibilidade explícita:
-`download`, `leitura online`, `empréstimo` ou `somente catálogo`. Fontes de download
-continuam responsáveis por validar o domínio e o arquivo. A interface nunca deve
-transformar automaticamente um link de leitura ou empréstimo em download.
+Uma fonte só pode participar desta tela quando retornar um arquivo de download
+validável. Links de leitura, empréstimo ou páginas de catálogo não são resultados.
+Cada adaptador continua responsável por restringir seu domínio e formato.
 
 As respostas podem ser guardadas em cache local por algumas horas. Isso acelera a
 navegação, respeita limites das APIs e permite voltar à página anterior sem nova

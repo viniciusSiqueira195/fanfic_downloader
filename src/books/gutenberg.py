@@ -23,6 +23,19 @@ class Gutenberg:
         parametros = {"search": termo.strip(), "mime_type": MIMES[formato], "page": pagina + 1}
         if idioma:
             parametros["languages"] = idioma
+        return self._consultar(parametros, formato)
+
+    def explorar_pagina(self, formato="epub", pagina=0, idioma="pt", topico=""):
+        if formato not in MIMES or pagina < 0:
+            raise ValueError("Formato ou página inválidos.")
+        parametros = {"mime_type": MIMES[formato], "page": pagina + 1, "sort": "popular"}
+        if idioma:
+            parametros["languages"] = idioma
+        if topico:
+            parametros["topic"] = topico
+        return self._consultar(parametros, formato)
+
+    def _consultar(self, parametros, formato):
         resposta = self.http.get(
             "https://gutendex.com/books/",
             params=parametros,
