@@ -37,7 +37,9 @@ naquele momento e a grava imediatamente nas preferências.
 
 As fontes são consultadas simultaneamente e o status informa cada resposta sem
 travar a janela. Resultados equivalentes são reunidos e as correspondências mais
-próximas aparecem primeiro. O botão **Verificar fontes** testa os catálogos sob
+próximas aparecem primeiro. Quando um catálogo já entrega pelo menos cinco itens,
+a lista é liberada sem aguardar outro catálogo lento; ele pode ser consultado
+diretamente pelo seletor de fonte. O botão **Verificar fontes** testa os catálogos sob
 demanda. O histórico guarda até 50 downloads existentes e permite abrir o livro
 ou sua pasta. A tela de detalhes informa fonte, formato, autor e idioma quando o
 catálogo fornece esses dados, além de permitir copiar a sinopse.

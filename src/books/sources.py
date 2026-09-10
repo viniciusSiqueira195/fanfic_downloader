@@ -9,6 +9,7 @@ from scrapers.search_relevance import normalizar, termos_significativos
 
 
 FONTES_INDIVIDUAIS = {"Visionvox": Visionvox, "Project Gutenberg": Gutenberg}
+MINIMO_RESULTADOS_RAPIDOS = 5
 
 
 def _pontuacao(livro, termo):
@@ -49,6 +50,7 @@ class TodasFontes:
                    for fonte in self.fontes}
         respostas = []
         pendentes = set(tarefas)
+        resposta_rapida = False
         try:
             while pendentes:
                 if cancel_event is not None and cancel_event.is_set():
@@ -62,10 +64,15 @@ class TodasFontes:
                         if progresso:
                             progresso(nomes[id(fonte)], "concluída", len(resultado.livros),
                                       resultado.livros)
+                        if len(resultado.livros) >= MINIMO_RESULTADOS_RAPIDOS:
+                            resposta_rapida = bool(pendentes)
+                            break
                     except (requests.RequestException, ValueError) as erro:
                         erros.append(f"{nomes[id(fonte)]}: {erro}")
                         if progresso:
                             progresso(nomes[id(fonte)], "falhou", 0, [])
+                if resposta_rapida:
+                    break
         finally:
             executor.shutdown(wait=False, cancel_futures=True)
         # Mantém a ordem configurada estável, mesmo que as respostas cheguem fora de ordem.
@@ -82,7 +89,10 @@ class TodasFontes:
                     livros.append(livro)
         if not livros and len(erros) == len(self.fontes):
             raise requests.RequestException("Nenhuma fonte respondeu à pesquisa.")
-        aviso = " Algumas fontes falharam: " + "; ".join(erros) if erros else ""
+        if resposta_rapida:
+            aviso = " Outros catálogos ainda estavam demorando; escolha uma fonte específica para consultá-los."
+        else:
+            aviso = " Algumas fontes falharam: " + "; ".join(erros) if erros else ""
         livros.sort(key=lambda livro: _pontuacao(livro, termo), reverse=True)
         return PaginaLivros(livros, tem_proxima, aviso)
 

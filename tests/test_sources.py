@@ -1,4 +1,6 @@
 import sys
+import threading
+import time
 import unittest
 from pathlib import Path
 from unittest.mock import Mock
@@ -116,3 +118,26 @@ class SourcesTests(unittest.TestCase):
         TodasFontes([fonte]).buscar_pagina("livro", progresso=progresso)
         progresso.assert_any_call("Catálogo", "consultando", 0, [])
         progresso.assert_any_call("Catálogo", "concluída", 0, [])
+
+    def test_varios_resultados_nao_esperam_catalogo_lento(self):
+        rapido, lento = Mock(), Mock()
+        rapido.nome, lento.nome = "Rápido", "Lento"
+        rapido.buscar_pagina.return_value = PaginaLivros([
+            Livro(f"Livro {i}", f"https://visionvox.net/{i}.epub", "epub")
+            for i in range(5)
+        ], True)
+        liberar = threading.Event()
+
+        def demorar(*args):
+            liberar.wait(2)
+            return PaginaLivros([], False)
+
+        lento.buscar_pagina.side_effect = demorar
+        inicio = time.monotonic()
+        try:
+            pagina = TodasFontes([rapido, lento]).buscar_pagina("livro")
+            self.assertLess(time.monotonic() - inicio, .5)
+            self.assertEqual(len(pagina.livros), 5)
+            self.assertIn("demorando", pagina.aviso)
+        finally:
+            liberar.set()
