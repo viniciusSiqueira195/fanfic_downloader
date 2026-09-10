@@ -1,6 +1,7 @@
 import requests
 from bs4 import BeautifulSoup
 from urllib.parse import quote_plus, unquote
+from scrapers.search_relevance import filtrar_e_ordenar
 
 
 USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
@@ -31,7 +32,7 @@ def buscar_fanfics_wattpad(termo, limite=10):
     headers = {"User-Agent": USER_AGENT}
     params = {
         "query": termo_limpo,
-        "limit": limite,
+        "limit": max(30, limite * 5),
         "offset": 0,
     }
 
@@ -54,10 +55,11 @@ def buscar_fanfics_wattpad(termo, limite=10):
                 "autor": historia.get("user", {}).get("name", "Autor Desconhecido"),
                 "url": url,
                 "origem": "Wattpad",
+                "descricao": historia.get("description", ""),
             }
         )
 
-    return resultados
+    return filtrar_e_ordenar(resultados, termo_limpo, limite)
 
 
 def buscar_fanfics_spirit(termo, limite=10):
@@ -107,10 +109,7 @@ def buscar_fanfics_spirit(termo, limite=10):
             }
         )
 
-        if len(resultados) >= limite:
-            break
-
-    return resultados
+    return filtrar_e_ordenar(resultados, termo_limpo, limite)
 
 
 def buscar_fanfics_fanfiction_net(termo, limite=10):
@@ -147,10 +146,7 @@ def buscar_fanfics_fanfiction_net(termo, limite=10):
             }
         )
 
-        if len(resultados) >= limite:
-            break
-
-    return resultados
+    return filtrar_e_ordenar(resultados, termo_limpo, limite)
 
 
 def _buscar_fanfics_plusfiction_direto(termo_limpo, limite):
@@ -189,10 +185,7 @@ def _buscar_fanfics_plusfiction_direto(termo_limpo, limite):
             }
         )
 
-        if len(resultados) >= limite:
-            break
-
-    return resultados
+    return filtrar_e_ordenar(resultados, termo_limpo, limite)
 
 
 def _buscar_fanfics_plusfiction_via_duckduckgo(termo_limpo, limite):
@@ -224,10 +217,7 @@ def _buscar_fanfics_plusfiction_via_duckduckgo(termo_limpo, limite):
             }
         )
 
-        if len(resultados) >= limite:
-            break
-
-    return resultados
+    return filtrar_e_ordenar(resultados, termo_limpo, limite)
 
 
 def buscar_fanfics_plusfiction(termo, limite=10):
@@ -236,7 +226,10 @@ def buscar_fanfics_plusfiction(termo, limite=10):
         raise ValueError("O termo de busca não pode estar vazio.")
 
     try:
-        return _buscar_fanfics_plusfiction_direto(termo_limpo, limite)
+        resultados = _buscar_fanfics_plusfiction_direto(termo_limpo, limite)
+        if resultados:
+            return resultados
+        return _buscar_fanfics_plusfiction_via_duckduckgo(termo_limpo, limite)
     except requests.exceptions.HTTPError as erro:
         if erro.response is not None and erro.response.status_code == 403:
             return _buscar_fanfics_plusfiction_via_duckduckgo(termo_limpo, limite)
