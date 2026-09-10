@@ -85,6 +85,11 @@ até seu timeout. Use Tab/Shift+Tab para navegar e Escape para fechar ou solicit
 cancelamento. O fluxo foi validado manualmente com navegação por teclado e leitor
 de tela durante o desenvolvimento.
 
+Os temas de **Descobrir livros**, como Fantasia, usam os campos de assunto dos
+catálogos. Fontes que não publicam gênero, como o Visionvox, continuam disponíveis
+na pesquisa normal, mas não entram na descoberta temática por simples coincidência
+de palavras no título.
+
 Cada fonte declara os formatos e idiomas que oferece; os seletores escondem
 combinações indisponíveis. Consultas idênticas usam um cache em memória de dois
 minutos e as conexões fazem poucas tentativas automáticas para falhas temporárias.

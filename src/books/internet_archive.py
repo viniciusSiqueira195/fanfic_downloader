@@ -16,6 +16,15 @@ FORMATOS_ARQUIVO = {
     "txt": ("DjVuTXT", "Full Text"),
 }
 IDIOMAS = {"pt": "por", "en": "eng", "es": "spa", "fr": "fre"}
+ASSUNTOS = {
+    "fiction": ("fiction",),
+    "fantasy": ("fantasy", "fantasy fiction"),
+    "romance": ("romance", "love stories"),
+    "mystery": ("mystery", "detective and mystery stories"),
+    "science fiction": ("science fiction",),
+    "children": ("children's literature", "juvenile fiction"),
+    "history": ("history",),
+}
 
 
 def _texto(valor):
@@ -57,8 +66,11 @@ class InternetArchive:
         if idioma in IDIOMAS:
             consulta += f" AND language:{IDIOMAS[idioma]}"
         if topico:
-            tema = topico.replace('"', " ").replace("\\", " ")
-            consulta += f' AND (subject:"{tema}" OR title:"{tema}")'
+            assuntos = ASSUNTOS.get(topico, (topico,))
+            filtros = " OR ".join(
+                f'subject:"{assunto.replace(chr(34), " ").replace(chr(92), " ")}"'
+                for assunto in assuntos)
+            consulta += f" AND ({filtros})"
         return self._consultar(consulta, formato, pagina, ordenar=True)
 
     def _consultar(self, consulta, formato, pagina, ordenar=False):

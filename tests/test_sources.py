@@ -84,11 +84,8 @@ class SourcesTests(unittest.TestCase):
         self.assertEqual(pagina.livros, [])
         self.http.get.assert_not_called()
 
-    def test_visionvox_descobre_fantasia_em_portugues(self):
-        self.resposta.content = b'<input name="busca"><a href="livro.epub">Fantasia medieval</a>'
-        pagina = Visionvox(self.http).explorar_pagina("epub", 0, "pt", "fantasy")
-        self.assertEqual(pagina.livros[0].titulo, "Fantasia medieval")
-        self.assertEqual(self.http.get.call_args.kwargs["params"]["busca"], "fantasia")
+    def test_visionvox_nao_declara_descoberta_sem_metadados_de_genero(self):
+        self.assertFalse(Visionvox.capacidades.descoberta)
 
     def test_wikisource_cria_download_oficial_e_ignora_capitulos(self):
         self.resposta.json.return_value = {
@@ -150,6 +147,14 @@ class SourcesTests(unittest.TestCase):
         parametros = self.http.get.call_args.kwargs["params"]
         self.assertEqual(parametros["sort[]"], "downloads desc")
         self.assertIn("language:por", parametros["q"])
+
+    def test_descoberta_fantasia_filtra_assuntos_e_nao_titulos(self):
+        self.resposta.json.return_value = {"response": {"numFound": 0, "docs": []}}
+        InternetArchive(self.http).explorar_pagina("epub", 0, "pt", "fantasy")
+        consulta = self.http.get.call_args.kwargs["params"]["q"]
+        self.assertIn('subject:"fantasy"', consulta)
+        self.assertIn('subject:"fantasy fiction"', consulta)
+        self.assertNotIn("title:", consulta)
 
     def test_descoberta_combina_fontes_capazes_e_ignora_as_demais(self):
         primeira, segunda, sem_descoberta = Mock(), Mock(), Mock()

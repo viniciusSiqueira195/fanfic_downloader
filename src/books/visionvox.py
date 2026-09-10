@@ -12,17 +12,6 @@ from books.urls import validar_url_download
 from scrapers.search_relevance import normalizar, termos_significativos
 
 BASE_URL = "https://visionvox.com.br/"
-TEMAS_PT = {
-    "fiction": "ficção",
-    "fantasy": "fantasia",
-    "romance": "romance",
-    "mystery": "mistério",
-    "science fiction": "ficção científica",
-    "children": "literatura infantil",
-    "history": "história",
-}
-
-
 def validar_url(url):
     return validar_url_download(url, "Visionvox")
 
@@ -49,7 +38,9 @@ def extrair_livros(html):
 
 class Visionvox:
     nome = "Visionvox"
-    capacidades = CapacidadesCatalogo(frozenset(FORMATOS), frozenset({"pt"}), True)
+    # O catálogo oferece pesquisa por texto, mas não publica gênero/assunto por
+    # livro. Tratá-la como descoberta temática geraria coincidências de título.
+    capacidades = CapacidadesCatalogo(frozenset(FORMATOS), frozenset({"pt"}), False)
     def __init__(self, http=None):
         self.http = http or criar_cliente()
 
@@ -86,15 +77,6 @@ class Visionvox:
                 tem_proxima = True
                 break
         return PaginaLivros(livros, tem_proxima)
-
-    @cachear_paginas()
-    def explorar_pagina(self, formato="epub", pagina=0, idioma="pt", topico=""):
-        if idioma and idioma != "pt":
-            return PaginaLivros([], False)
-        termo = TEMAS_PT.get(topico)
-        if not termo:
-            return PaginaLivros([], False, " O Visionvox participa da descoberta quando um tema é escolhido.")
-        return self.buscar_pagina(termo, formato, pagina, "pt")
 
     def obter_sinopse(self, livro):
         termo = livro.titulo.rsplit(".", 1)[0].replace("_", " ")
