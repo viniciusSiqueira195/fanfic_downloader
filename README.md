@@ -72,8 +72,10 @@ Em **Configurações**, o carregamento das listas pode usar o modo manual ou
 contínuo. No modo manual, chegar aos cinco últimos itens acrescenta até quinze
 resultados sem trocar de tela nem perder a seleção. No modo contínuo, as páginas
 seguintes entram automaticamente em segundo plano. O limite padrão é 200 itens;
-o valor 0 solicita todos os resultados disponíveis. O limite é aplicado também
-quando uma fonte retorna uma página maior que o espaço restante.
+o valor 0 ignora o modo escolhido e percorre automaticamente todas as páginas que
+as fontes oferecerem, inclusive páginas intermediárias vazias ou repetidas. Essa
+opção pode consumir mais memória, rede e tempo. O limite é aplicado também quando
+uma fonte retorna uma página maior que o espaço restante.
 
 Os arquivos são preservados no formato original, com limite de 100 MB. Se o livro
 já existir, o aplicativo oferece abrir o arquivo, salvar uma cópia numerada ou cancelar.

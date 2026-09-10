@@ -415,7 +415,9 @@ class BooksDialog(wx.Dialog):
                     urls_da_pagina.add(chave)
                     novos.append(livro)
             self.urls_exibidas.update(urls_da_pagina)
-            if incremental and self.modo_carregamento == "manual" and self.lote_restante:
+            carregar_tudo = self.limite_resultados == 0
+            if (incremental and not carregar_tudo
+                    and self.modo_carregamento == "manual" and self.lote_restante):
                 self.resultados_reserva.extend(novos[self.lote_restante:])
                 novos = novos[:self.lote_restante]
             if self.limite_resultados:
@@ -430,10 +432,16 @@ class BooksDialog(wx.Dialog):
                                   len(self.livros) >= self.limite_resultados)
             if atingiu_limite:
                 self.tem_proxima = False
-            self.status.SetValue(
-                f"{len(self.livros)} livros carregados."
-                f"{' Limite configurado atingido.' if atingiu_limite else ''}{resultado.aviso}"
-            )
+            terminou_tudo = carregar_tudo and not self.tem_proxima
+            if terminou_tudo:
+                mensagem = (f"Todos os resultados disponíveis foram carregados: "
+                            f"{len(self.livros)} livros.")
+            else:
+                mensagem = (
+                    f"{len(self.livros)} livros carregados."
+                    f"{' Limite configurado atingido.' if atingiu_limite else ''}"
+                )
+            self.status.SetValue(f"{mensagem}{resultado.aviso}")
             if incremental:
                 self.carregando_mais = False
                 self.cancelar.Disable()
@@ -446,8 +454,11 @@ class BooksDialog(wx.Dialog):
                 self.status.SetFocus()
             if self.modo_carregamento == "manual" and self.lote_restante:
                 self.lote_restante = max(0, self.lote_restante - len(novos))
-            continuar = (self.modo_carregamento == "continuo" or self.lote_restante > 0)
-            if continuar and self.tem_proxima and novos:
+            continuar = (carregar_tudo or self.modo_carregamento == "continuo"
+                         or self.lote_restante > 0)
+            # Com limite zero, uma página vazia ou composta só por duplicatas não
+            # significa necessariamente o fim do catálogo da fonte.
+            if continuar and self.tem_proxima and (novos or carregar_tudo):
                 wx.CallAfter(self._buscar_pagina, pagina + 1)
 
         if incremental:
@@ -483,7 +494,8 @@ class BooksDialog(wx.Dialog):
         concluido(resultado)
 
     def on_selecao_resultado(self, event):
-        if (self.modo_carregamento == "manual" and not self.ocupado
+        if (self.limite_resultados != 0 and self.modo_carregamento == "manual"
+                and not self.ocupado
                 and not self.carregando_mais and self.tem_proxima):
             indice = self.resultados.GetSelection()
             if indice != wx.NOT_FOUND and indice >= self.resultados.GetCount() - 5:

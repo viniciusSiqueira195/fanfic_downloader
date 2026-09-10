@@ -255,3 +255,31 @@ class BooksGuiTests(unittest.TestCase):
             evento.Skip.assert_called()
         finally:
             dialogo.Destroy()
+
+    def test_limite_zero_esgota_catalogo_mesmo_no_modo_manual(self):
+        import wx
+        from books.models import Livro, PaginaLivros
+        from gui.books_dialog import BooksDialog
+        dialogo = BooksDialog(None, sons=Mock(), modo_carregamento="manual",
+                              limite_resultados=0)
+        primeiro = Livro("A", "https://visionvox.net/a.epub", "epub")
+        segundo = Livro("B", "https://visionvox.net/b.epub", "epub")
+        dialogo.fonte = Mock()
+        dialogo.fonte.buscar_pagina.side_effect = [
+            PaginaLivros([primeiro], True),
+            PaginaLivros([primeiro], True),
+            PaginaLivros([segundo], False),
+        ]
+        try:
+            dialogo.termo.SetValue("livro")
+            dialogo.on_pesquisar(None)
+            limite = time.monotonic() + 5
+            while ((dialogo.ocupado or dialogo.carregando_mais
+                    or dialogo.fonte.buscar_pagina.call_count < 3)
+                   and time.monotonic() < limite):
+                wx.Yield(); time.sleep(.01)
+            self.assertEqual(dialogo.fonte.buscar_pagina.call_count, 3)
+            self.assertEqual(dialogo.resultados.GetCount(), 2)
+            self.assertIn("Todos os resultados disponíveis", dialogo.status.GetValue())
+        finally:
+            dialogo.Destroy()
