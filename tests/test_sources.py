@@ -8,10 +8,12 @@ from unittest.mock import Mock
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
 from books.gutenberg import Gutenberg
+from books.internet_archive import InternetArchive
 from books.models import Livro, PaginaLivros
 from books.sources import TodasFontes
 from books.urls import validar_url_download
 from books.visionvox import Visionvox
+from books.wikisource import Wikisource
 
 
 class SourcesTests(unittest.TestCase):
@@ -82,6 +84,53 @@ class SourcesTests(unittest.TestCase):
         self.assertEqual(pagina.livros, [])
         self.http.get.assert_not_called()
 
+    def test_wikisource_cria_download_oficial_e_ignora_capitulos(self):
+        self.resposta.json.return_value = {
+            "continue": {"sroffset": 20},
+            "query": {"search": [{"title": "Dom Casmurro"},
+                                   {"title": "Dom Casmurro/Capítulo I"}]},
+        }
+        pagina = Wikisource(self.http).buscar_pagina("Dom Casmurro", "epub", 0, "pt")
+        self.assertEqual(len(pagina.livros), 1)
+        self.assertEqual(pagina.livros[0].origem, "Wikisource")
+        self.assertIn("ws-export.wmcloud.org", pagina.livros[0].url)
+        self.assertIn("format=epub-3", pagina.livros[0].url)
+        self.assertTrue(pagina.tem_proxima)
+
+    def test_wikisource_informa_formato_txt_indisponivel_sem_consultar(self):
+        pagina = Wikisource(self.http).buscar_pagina("Dom Casmurro", "txt")
+        self.assertEqual(pagina.livros, [])
+        self.assertIn("EPUB e PDF", pagina.aviso)
+        self.http.get.assert_not_called()
+
+    def test_internet_archive_retorna_apenas_arquivo_publico_no_formato(self):
+        busca = Mock()
+        busca.json.return_value = {"response": {"numFound": 1, "docs": [{
+            "identifier": "dom-casmurro", "title": "Dom Casmurro",
+            "creator": "Machado de Assis", "language": "por",
+            "description": "Romance brasileiro", "licenseurl": "public-domain",
+        }]}}
+        metadados = Mock()
+        metadados.json.return_value = {"metadata": {"access-restricted-item": "false",
+                                                     "licenseurl": "public-domain"},
+                                       "files": [{"name": "Dom Casmurro.epub",
+                                                  "format": "EPUB"}]}
+        self.http.get.side_effect = [busca, metadados]
+        pagina = InternetArchive(self.http).buscar_pagina("Dom Casmurro", "epub", 0, "pt")
+        self.assertEqual(len(pagina.livros), 1)
+        self.assertEqual(pagina.livros[0].origem, "Internet Archive")
+        self.assertIn("archive.org/download/dom-casmurro/Dom%20Casmurro.epub",
+                      pagina.livros[0].url)
+        self.assertFalse(pagina.tem_proxima)
+
+    def test_internet_archive_descarta_item_com_acesso_restrito(self):
+        self.resposta.json.return_value = {
+            "metadata": {"access-restricted-item": "true"},
+            "files": [{"name": "livro.pdf", "format": "Text PDF"}],
+        }
+        item = {"identifier": "livro", "title": "Livro"}
+        self.assertIsNone(InternetArchive(self.http)._obter_livro(item, "pdf"))
+
     def test_formato_indisponivel_e_link_externo_nao_viram_download(self):
         self.resposta.json.return_value = {"results": [
             {"title": "HTML", "formats": {"text/html": "https://www.gutenberg.org/a.html"}},
@@ -103,7 +152,9 @@ class SourcesTests(unittest.TestCase):
     def test_hosts_de_uma_fonte_nao_sao_aceitos_na_outra(self):
         for url, origem in [("https://www.gutenberg.org/a.epub", "Visionvox"),
                             ("https://visionvox.net/a.epub", "Project Gutenberg"),
-                            ("https://www.gutenberg.org.evil.test/a.epub", "Project Gutenberg")]:
+                            ("https://www.gutenberg.org.evil.test/a.epub", "Project Gutenberg"),
+                            ("https://archive.org.evil.test/a.epub", "Internet Archive"),
+                            ("https://ws-export.wmcloud.org.evil.test/a.epub", "Wikisource")]:
             with self.subTest(origem=origem), self.assertRaises(ValueError):
                 validar_url_download(url, origem)
 

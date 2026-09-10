@@ -4,11 +4,18 @@ import requests
 
 from books.models import PaginaLivros
 from books.gutenberg import Gutenberg
+from books.internet_archive import InternetArchive
 from books.visionvox import Visionvox
+from books.wikisource import Wikisource
 from scrapers.search_relevance import normalizar, termos_significativos
 
 
-FONTES_INDIVIDUAIS = {"Visionvox": Visionvox, "Project Gutenberg": Gutenberg}
+FONTES_INDIVIDUAIS = {
+    "Visionvox": Visionvox,
+    "Project Gutenberg": Gutenberg,
+    "Wikisource": Wikisource,
+    "Internet Archive": InternetArchive,
+}
 MINIMO_RESULTADOS_RAPIDOS = 5
 
 

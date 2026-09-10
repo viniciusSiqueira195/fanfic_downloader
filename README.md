@@ -20,8 +20,9 @@ dependências Python, sozinha, não comprova que o navegador esteja preparado.
 ## Livros: escolha da fonte
 
 No menu principal, escolha **Baixar livros**. Digite o título ou autor e, no
-controle seguinte, selecione **Todas as fontes**, **Visionvox** ou
-**Project Gutenberg**. Depois escolha EPUB, TXT ou PDF, filtre o idioma se quiser
+controle seguinte, selecione **Todas as fontes**, **Visionvox**,
+**Project Gutenberg**, **Wikisource** ou **Internet Archive**. Depois escolha EPUB,
+TXT ou PDF, filtre o idioma se quiser
 e pesquise. Português vem selecionado inicialmente; **Todos os idiomas** continua
 disponível. O filtro é aplicado pelo catálogo quando a fonte oferece esse recurso.
 A pesquisa tem páginas; use os botões de página anterior e próxima para navegar.
@@ -36,6 +37,12 @@ os resultados anteriores e mantém o termo para uma nova pesquisa.
 Se o Gutendex não responder em dez segundos, o aplicativo consulta automaticamente
 o catálogo OPDS oficial do Project Gutenberg, sem manter a janela esperando pelo
 timeout antigo de trinta segundos.
+
+A Wikisource pesquisa obras livres em português, inglês, espanhol ou francês e
+usa o exportador oficial para entregar EPUB ou PDF. O Internet Archive pesquisa
+somente itens que declaram licença aberta ou estado de domínio público e só mostra
+um resultado quando encontra um arquivo público no formato escolhido. Alguns itens
+do acervo podem ter qualidade de digitalização inferior à de uma edição revisada.
 
 Na lista de resultados, Enter, Shift+F10, a tecla de menu ou o clique direito
 abrem as ações **Baixar**, **Ler detalhes e sinopse** e **Escolher outra pasta para
@@ -66,7 +73,8 @@ O cancelamento da pesquisa combinada
 até seu timeout. Use Tab/Shift+Tab para navegar e Escape para fechar ou solicitar
 cancelamento. A janela ainda precisa de validação prática com NVDA/Narrador.
 
-LeLivros e outras fontes ainda não estão integrados. Veja o
+Sites sem catálogo público estável ou que distribuam obras sem autorização não são
+incluídos. Veja o
 [diagnóstico e plano de evolução](docs/diagnostico-e-plano.md) para o estado do
 projeto, problemas conhecidos e pesquisa inicial das fontes.
 
