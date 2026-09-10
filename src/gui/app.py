@@ -8,10 +8,12 @@ from scrapers.wattpad import baixar_wattpad
 from scrapers.fanfiction_net import baixar_fanfiction_net
 from scrapers.plusfiction import baixar_plusfiction
 from scrapers.search import buscar_fanfics_wattpad, buscar_fanfics_spirit, buscar_fanfics_fanfiction_net, buscar_fanfics_plusfiction, buscar_fanfics_todas_fontes
-from updater import baixar_e_aplicar_atualizacao, reiniciar_aplicativo, verificar_atualizacao
+from updater import baixar_e_aplicar_atualizacao, reiniciar_aplicativo, verificar_atualizacao, get_application_root
 from version import APP_VERSION
+from gui.books_dialog import BooksDialog
+from gui.sounds import FeedbackSonoro
 
-CONFIG_FILE = "config.json"
+CONFIG_FILE = str(get_application_root() / "config.json")
 
 def carregar_config():
     if os.path.exists(CONFIG_FILE):
@@ -27,15 +29,23 @@ def carregar_config():
             pass
     return {"formato": "PDF", "pasta": "", "verificar_atualizacoes": False, "ultima_versao_lida": ""}
 
-def salvar_config(formato, pasta, verificar_atualizacoes, ultima_versao_lida=""):
+def salvar_config(formato, pasta, verificar_atualizacoes, ultima_versao_lida="", pasta_livros=None,
+                  sons_navegacao=None):
     try:
+        anterior = carregar_config()
+        sons_navegacao = (anterior.get("sons_navegacao", True)
+                          if sons_navegacao is None else sons_navegacao)
+        pasta_livros = (anterior.get("pasta_livros", "")
+                        if pasta_livros is None else pasta_livros)
         with open(CONFIG_FILE, 'w', encoding='utf-8') as f:
             json.dump(
                 {
                     "formato": formato, 
                     "pasta": pasta, 
                     "verificar_atualizacoes": verificar_atualizacoes,
-                    "ultima_versao_lida": ultima_versao_lida
+                    "ultima_versao_lida": ultima_versao_lida,
+                    "pasta_livros": pasta_livros,
+                    "sons_navegacao": sons_navegacao,
                 },
                 f,
             )
@@ -45,7 +55,7 @@ def salvar_config(formato, pasta, verificar_atualizacoes, ultima_versao_lida="")
 
 class ConfigFrame(wx.Frame):
     def __init__(self, main_frame):
-        super().__init__(parent=main_frame, title="Configurações", size=(460, 220))
+        super().__init__(parent=main_frame, title="Configurações", size=(480, 270))
         self.main_frame = main_frame
 
         panel = wx.Panel(self)
@@ -57,6 +67,9 @@ class ConfigFrame(wx.Frame):
         )
         self.chk_verificar_atualizacoes.SetValue(bool(main_frame.config.get("verificar_atualizacoes", False)))
         sizer.Add(self.chk_verificar_atualizacoes, 0, wx.ALL, 10)
+        self.chk_sons = wx.CheckBox(panel, label="Sons suaves de navegação e confirmação")
+        self.chk_sons.SetValue(bool(main_frame.config.get("sons_navegacao", True)))
+        sizer.Add(self.chk_sons, 0, wx.LEFT | wx.RIGHT | wx.BOTTOM, 10)
 
         sizer_botoes = wx.BoxSizer(wx.HORIZONTAL)
         self.btn_salvar = wx.Button(panel, label="Salvar")
@@ -70,6 +83,7 @@ class ConfigFrame(wx.Frame):
         panel.SetSizer(sizer)
         panel.Bind(wx.EVT_CHAR_HOOK, self.on_char_hook)
         self.Bind(wx.EVT_CLOSE, self.on_close)
+        self.main_frame.sons.vincular(self)
 
         self.CenterOnParent()
         self.chk_verificar_atualizacoes.SetFocus()
@@ -87,6 +101,7 @@ class ConfigFrame(wx.Frame):
 
     def on_salvar(self, event):
         self.main_frame.config["verificar_atualizacoes"] = self.chk_verificar_atualizacoes.GetValue()
+        self.main_frame.config["sons_navegacao"] = self.chk_sons.GetValue()
         self.main_frame._salvar_preferencias()
         self.Close()
 
@@ -177,6 +192,7 @@ class MainFrame(wx.Frame):
         super().__init__(parent=None, title=f"Fanfic Downloader v{APP_VERSION}", size=(500, 500))
 
         self.config = carregar_config()
+        self.sons = FeedbackSonoro(lambda: bool(self.config.get("sons_navegacao", True)))
         self.cancel_event = threading.Event()
         self._update_busy = False
         self.config_frame = None
@@ -187,7 +203,7 @@ class MainFrame(wx.Frame):
         # --- MENU PRINCIPAL ---
         self.panel_menu_principal, self.listbox_principal = self._criar_painel_menu(
             "Menu principal",
-            ["Baixar fanfics", "Baixar livros", "Configurações", "Verificar atualização", "Ver créditos"],
+            ["Baixar fanfics", "Baixar livros", "Configurações", "Verificar atualização", "Ver créditos", "Sair"],
             self.on_menu_principal,
         )
 
@@ -360,6 +376,7 @@ class MainFrame(wx.Frame):
 
         self.panel_principal.SetSizer(self.sizer_principal)
         self.Bind(wx.EVT_CHAR_HOOK, self.on_char_hook)
+        self.sons.vincular(self)
         self.Center()
 
         # Garante que a verificação rode logo após a tela principal desenhar
@@ -402,6 +419,7 @@ class MainFrame(wx.Frame):
     def _ativar_opcao_menu(self, listbox, ao_ativar):
         opcao = listbox.GetStringSelection()
         if opcao:
+            self.sons.tocar("confirmar")
             ao_ativar(opcao)
 
     def _mostrar_painel(self, painel):
@@ -437,13 +455,21 @@ class MainFrame(wx.Frame):
         if opcao == "Baixar fanfics":
             self._mostrar_painel(self.panel_menu_fanfics)
         elif opcao == "Baixar livros":
-            wx.MessageBox("Função em desenvolvimento.", "Baixar livros", wx.OK | wx.ICON_INFORMATION)
+            with BooksDialog(self, self.config.get("pasta_livros", self.config.get("pasta", "")),
+                             sons=self.sons) as dialogo:
+                dialogo.ShowModal()
+                if dialogo.ultima_pasta:
+                    self.config["pasta_livros"] = dialogo.ultima_pasta
+                    self._salvar_preferencias()
+            self.listbox_principal.SetFocus()
         elif opcao == "Configurações":
             self.abrir_configuracoes()
         elif opcao == "Verificar atualização":
             self.on_menu_verificar_atualizacao()
         elif opcao == "Ver créditos":
             self._mostrar_painel(self.panel_creditos)
+        elif opcao == "Sair":
+            self.Close()
 
     def on_menu_fanfics(self, opcao):
         if opcao == "Pesquisar":
@@ -486,7 +512,9 @@ class MainFrame(wx.Frame):
             self.combo_formato.GetStringSelection(),
             self.txt_pasta.GetValue().strip(),
             bool(self.config.get("verificar_atualizacoes", False)),
-            self.config.get("ultima_versao_lida", "")
+            self.config.get("ultima_versao_lida", ""),
+            pasta_livros=self.config.get("pasta_livros", ""),
+            sons_navegacao=bool(self.config.get("sons_navegacao", True)),
         )
 
     def _mostrar_painel_download(self, status, tempo, porcentagem, botao_cancelar_ativo, texto_botao_cancelar):
