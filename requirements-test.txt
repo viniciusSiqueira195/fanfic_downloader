@@ -1,0 +1,5 @@
+# Dependências para testes offline do núcleo; não exige wxPython ou Camoufox.
+requests==2.32.5
+beautifulsoup4==4.15.0
+ebooklib==0.20
+reportlab==5.0.1
