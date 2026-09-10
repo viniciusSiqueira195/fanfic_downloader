@@ -110,7 +110,8 @@ class TodasFontes:
         livros.sort(key=lambda livro: _pontuacao(livro, termo), reverse=True)
         return PaginaLivros(livros, tem_proxima, aviso)
 
-    def explorar_pagina(self, formato="epub", pagina=0, idioma="pt", topico=""):
+    def explorar_pagina(self, formato="epub", pagina=0, idioma="pt", topico="",
+                        progresso=None, cancel_event=None):
         fontes = [fonte for fonte in self.fontes
                   if getattr(getattr(fonte, "capacidades", None), "descoberta", False)
                   and formato in fonte.capacidades.formatos
@@ -118,6 +119,9 @@ class TodasFontes:
         if not fontes:
             return PaginaLivros([], False, " Nenhuma fonte oferece descoberta com esses filtros.")
         respostas, erros = [], []
+        if progresso:
+            for fonte in fontes:
+                progresso(fonte.nome, "consultando", 0, [])
         executor = ThreadPoolExecutor(max_workers=len(fontes), thread_name_prefix="descoberta")
         tarefas = {executor.submit(fonte.explorar_pagina, formato, pagina, idioma, topico): fonte
                    for fonte in fontes}
@@ -125,17 +129,27 @@ class TodasFontes:
         limite = monotonic() + MAX_ESPERA_DESCOBERTA
         try:
             while pendentes and monotonic() < limite:
+                if cancel_event is not None and cancel_event.is_set():
+                    raise requests.RequestException("Descoberta cancelada.")
                 concluidas, pendentes = wait(pendentes, timeout=max(0, min(.2, limite - monotonic())),
                                              return_when=FIRST_COMPLETED)
                 for tarefa in concluidas:
                     fonte = tarefas[tarefa]
                     try:
-                        respostas.append((fonte, tarefa.result()))
+                        resultado = tarefa.result()
+                        respostas.append((fonte, resultado))
+                        if progresso:
+                            progresso(fonte.nome, "concluída", len(resultado.livros),
+                                      resultado.livros)
                     except (requests.RequestException, ValueError) as erro:
                         erros.append(f"{fonte.nome}: {erro}")
+                        if progresso:
+                            progresso(fonte.nome, "falhou", 0, [])
             for tarefa in pendentes:
                 tarefa.cancel()
                 erros.append(f"{tarefas[tarefa].nome}: tempo limite atingido")
+                if progresso:
+                    progresso(tarefas[tarefa].nome, "falhou", 0, [])
         finally:
             executor.shutdown(wait=False, cancel_futures=True)
         livros, vistos = [], set()

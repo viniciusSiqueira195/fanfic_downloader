@@ -84,6 +84,12 @@ class SourcesTests(unittest.TestCase):
         self.assertEqual(pagina.livros, [])
         self.http.get.assert_not_called()
 
+    def test_visionvox_descobre_fantasia_em_portugues(self):
+        self.resposta.content = b'<input name="busca"><a href="livro.epub">Fantasia medieval</a>'
+        pagina = Visionvox(self.http).explorar_pagina("epub", 0, "pt", "fantasy")
+        self.assertEqual(pagina.livros[0].titulo, "Fantasia medieval")
+        self.assertEqual(self.http.get.call_args.kwargs["params"]["busca"], "fantasia")
+
     def test_wikisource_cria_download_oficial_e_ignora_capitulos(self):
         self.resposta.json.return_value = {
             "continue": {"sroffset": 20},
@@ -159,6 +165,17 @@ class SourcesTests(unittest.TestCase):
         pagina = TodasFontes([primeira, segunda, sem_descoberta]).explorar_pagina("epub", 0, "pt")
         self.assertEqual([livro.origem for livro in pagina.livros], ["Primeira", "Segunda"])
         sem_descoberta.explorar_pagina.assert_not_called()
+
+    def test_descoberta_anuncia_resultados_de_cada_fonte(self):
+        fonte = Mock()
+        fonte.nome = "Catálogo"
+        fonte.capacidades = Mock(descoberta=True, formatos={"epub"}, idiomas={"pt"})
+        livros = [Livro("Fantasia", "https://visionvox.net/f.epub", "epub")]
+        fonte.explorar_pagina.return_value = PaginaLivros(livros, False)
+        progresso = Mock()
+        TodasFontes([fonte]).explorar_pagina("epub", 0, "pt", "fantasy", progresso)
+        progresso.assert_any_call("Catálogo", "consultando", 0, [])
+        progresso.assert_any_call("Catálogo", "concluída", 1, livros)
 
     def test_formato_indisponivel_e_link_externo_nao_viram_download(self):
         self.resposta.json.return_value = {"results": [

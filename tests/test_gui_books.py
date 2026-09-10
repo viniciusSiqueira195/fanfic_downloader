@@ -187,6 +187,10 @@ class BooksGuiTests(unittest.TestCase):
         finally:
             dialogo.Destroy()
 
+    def test_fantasia_esta_disponivel_na_descoberta(self):
+        from gui.books_dialog import TEMAS
+        self.assertEqual(TEMAS["Fantasia"], "fantasy")
+
     def test_wikisource_remove_txt_dos_formatos_disponiveis(self):
         from gui.books_dialog import BooksDialog
         dialogo = BooksDialog(None, sons=Mock())

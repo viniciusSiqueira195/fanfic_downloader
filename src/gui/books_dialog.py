@@ -20,6 +20,7 @@ IDIOMAS = {
 TEMAS = {
     "Mais baixados": "",
     "Ficção": "fiction",
+    "Fantasia": "fantasy",
     "Romance": "romance",
     "Mistério": "mystery",
     "Ficção científica": "science fiction",
@@ -386,8 +387,13 @@ class BooksDialog(wx.Dialog):
 
         def buscar():
             if self.explorando:
-                livros = self.fonte.explorar_pagina(
-                    formato, pagina, idioma, self.topico_explorar)
+                if isinstance(self.fonte, TodasFontes):
+                    livros = self.fonte.explorar_pagina(
+                        formato, pagina, idioma, self.topico_explorar,
+                        atualizar_fonte, self.cancel_event)
+                else:
+                    livros = self.fonte.explorar_pagina(
+                        formato, pagina, idioma, self.topico_explorar)
             elif isinstance(self.fonte, TodasFontes):
                 livros = self.fonte.buscar_pagina(
                     termo, formato, pagina, idioma, atualizar_fonte, self.cancel_event)

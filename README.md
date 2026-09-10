@@ -27,6 +27,7 @@ e pesquise. Português vem selecionado inicialmente; **Todos os idiomas** contin
 disponível. O filtro é aplicado pelo catálogo quando a fonte oferece esse recurso.
 A pesquisa tem páginas; use os botões de página anterior e próxima para navegar.
 **Descobrir livros para baixar** permite navegar pelos mais baixados ou por tema,
+incluindo fantasia,
 respeitando idioma e formato. Só entram nessa lista itens com um arquivo validável
 no formato escolhido. A descoberta combina Project Gutenberg e Internet Archive,
 remove obras repetidas e alterna os catálogos para aumentar a variedade.
