@@ -21,7 +21,9 @@ dependências Python, sozinha, não comprova que o navegador esteja preparado.
 
 No menu principal, escolha **Baixar livros**. Digite o título ou autor e, no
 controle seguinte, selecione **Todas as fontes**, **Visionvox** ou
-**Project Gutenberg**. Depois escolha EPUB, TXT ou PDF e pesquise.
+**Project Gutenberg**. Depois escolha EPUB, TXT ou PDF, filtre o idioma se quiser
+e pesquise. Português vem selecionado inicialmente; **Todos os idiomas** continua
+disponível. O filtro é aplicado pelo catálogo quando a fonte oferece esse recurso.
 A pesquisa tem páginas; use os botões de página anterior e próxima para navegar.
 O acervo Visionvox é destinado a pessoas com deficiência visual.
 O Gutenberg reúne principalmente clássicos em vários idiomas, pesquisados pela

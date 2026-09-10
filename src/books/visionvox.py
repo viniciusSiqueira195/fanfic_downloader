@@ -31,7 +31,7 @@ def extrair_livros(html):
         if not titulo:
             continue
         vistos.add(url)
-        livros.append(Livro(titulo, url, formato))
+        livros.append(Livro(titulo, url, formato, idioma="pt"))
     return livros
 
 
@@ -40,14 +40,16 @@ class Visionvox:
     def __init__(self, http=None):
         self.http = http or requests
 
-    def buscar(self, termo, formato="epub", pagina=0):
-        return self.buscar_pagina(termo, formato, pagina).livros
+    def buscar(self, termo, formato="epub", pagina=0, idioma=""):
+        return self.buscar_pagina(termo, formato, pagina, idioma).livros
 
-    def buscar_pagina(self, termo, formato="epub", pagina=0):
+    def buscar_pagina(self, termo, formato="epub", pagina=0, idioma=""):
         if not termo.strip():
             raise ValueError("Digite o título ou autor do livro.")
         if formato not in FORMATOS or pagina < 0:
             raise ValueError("Formato ou página inválidos.")
+        if idioma and idioma != "pt":
+            return PaginaLivros([], False)
         resposta = self.http.get(
             urljoin(BASE_URL, "busca.php"),
             params={"busca": termo.strip(), "ext": formato,

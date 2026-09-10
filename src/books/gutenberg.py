@@ -12,17 +12,20 @@ class Gutenberg:
     def __init__(self, http=None):
         self.http = http or requests
 
-    def buscar(self, termo, formato="epub", pagina=0):
-        return self.buscar_pagina(termo, formato, pagina).livros
+    def buscar(self, termo, formato="epub", pagina=0, idioma=""):
+        return self.buscar_pagina(termo, formato, pagina, idioma).livros
 
-    def buscar_pagina(self, termo, formato="epub", pagina=0):
+    def buscar_pagina(self, termo, formato="epub", pagina=0, idioma=""):
         if not termo.strip():
             raise ValueError("Digite o título ou autor do livro.")
         if formato not in MIMES or pagina < 0:
             raise ValueError("Formato ou página inválidos.")
+        parametros = {"search": termo.strip(), "mime_type": MIMES[formato], "page": pagina + 1}
+        if idioma:
+            parametros["languages"] = idioma
         resposta = self.http.get(
             "https://gutendex.com/books/",
-            params={"search": termo.strip(), "mime_type": MIMES[formato], "page": pagina + 1},
+            params=parametros,
             headers=HEADERS, timeout=(10, 30),
         )
         resposta.raise_for_status()

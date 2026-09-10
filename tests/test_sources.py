@@ -43,6 +43,16 @@ class SourcesTests(unittest.TestCase):
         self.assertEqual(pagina.livros[0].url, "https://www.gutenberg.org/a-8.txt")
         self.assertFalse(pagina.tem_proxima)
 
+    def test_gutenberg_filtra_idioma_no_catalogo(self):
+        self.resposta.json.return_value = {"results": [], "next": None}
+        Gutenberg(self.http).buscar_pagina("amor", "epub", 0, "pt")
+        self.assertEqual(self.http.get.call_args.kwargs["params"]["languages"], "pt")
+
+    def test_visionvox_nao_e_consultado_para_outro_idioma(self):
+        pagina = Visionvox(self.http).buscar_pagina("love", "epub", 0, "en")
+        self.assertEqual(pagina.livros, [])
+        self.http.get.assert_not_called()
+
     def test_formato_indisponivel_e_link_externo_nao_viram_download(self):
         self.resposta.json.return_value = {"results": [
             {"title": "HTML", "formats": {"text/html": "https://www.gutenberg.org/a.html"}},

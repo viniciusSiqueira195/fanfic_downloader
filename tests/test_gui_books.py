@@ -54,7 +54,7 @@ class BooksGuiTests(unittest.TestCase):
             self.assertFalse(dialogo.ocupado)
             self.assertEqual(dialogo.resultados.GetCount(), 1)
             self.assertFalse(dialogo.proxima.IsEnabled())
-            dialogo.fonte.buscar_pagina.assert_called_once_with("teste", "epub", 0)
+            dialogo.fonte.buscar_pagina.assert_called_once_with("teste", "epub", 0, "pt")
         finally:
             dialogo.Destroy()
 

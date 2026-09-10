@@ -38,7 +38,8 @@ class TodasFontes:
     def __init__(self, fontes=None):
         self.fontes = fontes or [fabrica() for fabrica in FONTES_INDIVIDUAIS.values()]
 
-    def buscar_pagina(self, termo, formato="epub", pagina=0, progresso=None, cancel_event=None):
+    def buscar_pagina(self, termo, formato="epub", pagina=0, idioma="", progresso=None,
+                      cancel_event=None):
         livros, vistos, erros = [], set(), []
         tem_proxima = False
         nomes = {id(fonte): getattr(fonte, "nome", type(fonte).__name__) for fonte in self.fontes}
@@ -46,7 +47,7 @@ class TodasFontes:
             for fonte in self.fontes:
                 progresso(nomes[id(fonte)], "consultando", 0, [])
         executor = ThreadPoolExecutor(max_workers=len(self.fontes), thread_name_prefix="catalogo")
-        tarefas = {executor.submit(fonte.buscar_pagina, termo, formato, pagina): fonte
+        tarefas = {executor.submit(fonte.buscar_pagina, termo, formato, pagina, idioma): fonte
                    for fonte in self.fontes}
         respostas = []
         pendentes = set(tarefas)
@@ -101,7 +102,7 @@ class TodasFontes:
         for fonte in self.fontes:
             nome = getattr(fonte, "nome", type(fonte).__name__)
             try:
-                fonte.buscar_pagina("Dom Casmurro", "epub", 0)
+                fonte.buscar_pagina("Dom Casmurro", "epub", 0, "")
                 estados.append((nome, True, "respondendo"))
             except (requests.RequestException, ValueError) as erro:
                 estados.append((nome, False, str(erro)))

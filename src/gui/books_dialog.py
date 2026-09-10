@@ -10,6 +10,14 @@ from books.download import (DownloadCancelado, ErroPasta, baixar_livro,
 from books.sources import FONTES, TodasFontes
 from gui.sounds import FeedbackSonoro
 
+IDIOMAS = {
+    "Todos os idiomas": "",
+    "Português": "pt",
+    "Inglês": "en",
+    "Espanhol": "es",
+    "Francês": "fr",
+}
+
 
 class SinopseDialog(wx.Dialog):
     def __init__(self, parent, livro, texto):
@@ -132,6 +140,10 @@ class BooksDialog(wx.Dialog):
         self.formato = wx.Choice(self.painel_busca, choices=["EPUB", "TXT", "PDF"], name="Formato do livro")
         self.formato.SetSelection(0)
         busca_sizer.Add(self.formato, 0, wx.EXPAND | wx.ALL, 8)
+        busca_sizer.Add(wx.StaticText(self.painel_busca, label="Idioma:"), 0, wx.LEFT, 8)
+        self.idioma = wx.Choice(self.painel_busca, choices=list(IDIOMAS), name="Idioma dos livros")
+        self.idioma.SetStringSelection("Português")
+        busca_sizer.Add(self.idioma, 0, wx.EXPAND | wx.ALL, 8)
         botoes_busca = wx.BoxSizer(wx.HORIZONTAL)
         self.pesquisar = wx.Button(self.painel_busca, label="&Pesquisar")
         self.btn_historico = wx.Button(self.painel_busca, label="&Histórico de downloads")
@@ -201,7 +213,8 @@ class BooksDialog(wx.Dialog):
 
     def _ocupacao(self, ocupado):
         self.ocupado = ocupado
-        for controle in (self.fonte_escolha, self.termo, self.formato, self.pesquisar, self.resultados):
+        for controle in (self.fonte_escolha, self.termo, self.formato, self.idioma,
+                         self.pesquisar, self.resultados):
             controle.Enable(not ocupado)
         self.anterior.Enable(not ocupado and self.consulta is not None and self.pagina > 0)
         self.proxima.Enable(not ocupado and self.tem_proxima)
@@ -245,7 +258,8 @@ class BooksDialog(wx.Dialog):
             wx.MessageBox("Digite o título ou autor do livro.", "Pesquisa", parent=self)
             self.termo.SetFocus()
             return
-        self.consulta = (self.termo.GetValue().strip(), self.formato.GetStringSelection().lower())
+        self.consulta = (self.termo.GetValue().strip(), self.formato.GetStringSelection().lower(),
+                         IDIOMAS[self.idioma.GetStringSelection()])
         self._buscar_pagina(0)
 
     def on_fonte(self, event):
@@ -262,7 +276,7 @@ class BooksDialog(wx.Dialog):
         if self.ocupado or self.consulta is None:
             return
         self._mostrar_tela(True)
-        termo, formato = self.consulta
+        termo, formato, idioma = self.consulta
         self.status.SetValue(f"Pesquisando em {self.fonte_escolha.GetStringSelection()}, página {pagina + 1}...")
         parciais = []
 
@@ -281,9 +295,9 @@ class BooksDialog(wx.Dialog):
         def buscar():
             if isinstance(self.fonte, TodasFontes):
                 livros = self.fonte.buscar_pagina(
-                    termo, formato, pagina, atualizar_fonte, self.cancel_event)
+                    termo, formato, pagina, idioma, atualizar_fonte, self.cancel_event)
             else:
-                livros = self.fonte.buscar_pagina(termo, formato, pagina)
+                livros = self.fonte.buscar_pagina(termo, formato, pagina, idioma)
             if self.cancel_event.is_set():
                 raise DownloadCancelado()
             return livros
