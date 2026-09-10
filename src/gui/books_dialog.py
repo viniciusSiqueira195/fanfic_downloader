@@ -108,7 +108,9 @@ class BooksDialog(wx.Dialog):
         self.historico = list(historico or [])
         self.ao_baixar = ao_baixar
         sizer = wx.BoxSizer(wx.VERTICAL)
-        explicacao = wx.TextCtrl(self, value=(
+        self.painel_busca = wx.Panel(self, name="Tela de pesquisa de livros")
+        busca_sizer = wx.BoxSizer(wx.VERTICAL)
+        explicacao = wx.TextCtrl(self.painel_busca, value=(
             "Digite o título ou autor e escolha uma fonte, ou pesquise em todas. O Visionvox é destinado "
             "a pessoas com deficiência visual. O Gutenberg reúne principalmente obras clássicas, "
             "em vários idiomas; alguns formatos podem não estar disponíveis. "
@@ -118,42 +120,54 @@ class BooksDialog(wx.Dialog):
             "para baixar ou ler a sinopse. Atalhos: Ctrl+F pesquisa, Ctrl+D baixa, Ctrl+H abre "
             "o histórico e F5 repete a pesquisa. Use Tab para navegar e Escape para fechar ou cancelar."),
             style=wx.TE_MULTILINE | wx.TE_READONLY, name="Como baixar livros")
-        sizer.Add(explicacao, 0, wx.EXPAND | wx.ALL, 8)
-        sizer.Add(wx.StaticText(self, label="Título ou autor:"), 0, wx.LEFT, 8)
-        self.termo = wx.TextCtrl(self, name="Título ou autor", style=wx.TE_PROCESS_ENTER)
-        sizer.Add(self.termo, 0, wx.EXPAND | wx.ALL, 8)
-        sizer.Add(wx.StaticText(self, label="Fonte da pesquisa:"), 0, wx.LEFT, 8)
-        self.fonte_escolha = wx.Choice(self, choices=list(FONTES), name="Fonte da pesquisa de livros")
+        busca_sizer.Add(explicacao, 0, wx.EXPAND | wx.ALL, 8)
+        busca_sizer.Add(wx.StaticText(self.painel_busca, label="Título ou autor:"), 0, wx.LEFT, 8)
+        self.termo = wx.TextCtrl(self.painel_busca, name="Título ou autor", style=wx.TE_PROCESS_ENTER)
+        busca_sizer.Add(self.termo, 0, wx.EXPAND | wx.ALL, 8)
+        busca_sizer.Add(wx.StaticText(self.painel_busca, label="Fonte da pesquisa:"), 0, wx.LEFT, 8)
+        self.fonte_escolha = wx.Choice(self.painel_busca, choices=list(FONTES), name="Fonte da pesquisa de livros")
         self.fonte_escolha.SetSelection(0)
-        sizer.Add(self.fonte_escolha, 0, wx.EXPAND | wx.ALL, 8)
-        sizer.Add(wx.StaticText(self, label="Formato disponível na fonte:"), 0, wx.LEFT, 8)
-        self.formato = wx.Choice(self, choices=["EPUB", "TXT", "PDF"], name="Formato do livro")
+        busca_sizer.Add(self.fonte_escolha, 0, wx.EXPAND | wx.ALL, 8)
+        busca_sizer.Add(wx.StaticText(self.painel_busca, label="Formato disponível na fonte:"), 0, wx.LEFT, 8)
+        self.formato = wx.Choice(self.painel_busca, choices=["EPUB", "TXT", "PDF"], name="Formato do livro")
         self.formato.SetSelection(0)
-        sizer.Add(self.formato, 0, wx.EXPAND | wx.ALL, 8)
-        self.pesquisar = wx.Button(self, label="&Pesquisar")
-        sizer.Add(self.pesquisar, 0, wx.ALL, 8)
-        self.resultados = wx.ListBox(self, name="Livros encontrados")
-        sizer.Add(self.resultados, 1, wx.EXPAND | wx.ALL, 8)
+        busca_sizer.Add(self.formato, 0, wx.EXPAND | wx.ALL, 8)
+        botoes_busca = wx.BoxSizer(wx.HORIZONTAL)
+        self.pesquisar = wx.Button(self.painel_busca, label="&Pesquisar")
+        self.btn_historico = wx.Button(self.painel_busca, label="&Histórico de downloads")
+        self.btn_saude = wx.Button(self.painel_busca, label="&Verificar fontes")
+        self.fechar = wx.Button(self.painel_busca, wx.ID_CANCEL, label="Fechar")
+        for botao in (self.pesquisar, self.btn_historico, self.btn_saude, self.fechar):
+            botoes_busca.Add(botao, 0, wx.RIGHT, 8)
+        busca_sizer.Add(botoes_busca, 0, wx.ALL, 8)
+        self.painel_busca.SetSizer(busca_sizer)
+        sizer.Add(self.painel_busca, 1, wx.EXPAND)
+
+        self.painel_resultados = wx.Panel(self, name="Tela de resultados de livros")
+        resultados_sizer = wx.BoxSizer(wx.VERTICAL)
+        self.resultados = wx.ListBox(self.painel_resultados, name="Livros encontrados")
+        resultados_sizer.Add(self.resultados, 1, wx.EXPAND | wx.ALL, 8)
         paginas = wx.BoxSizer(wx.HORIZONTAL)
-        self.anterior = wx.Button(self, label="Página anterior")
-        self.proxima = wx.Button(self, label="Próxima página")
+        self.anterior = wx.Button(self.painel_resultados, label="Página anterior")
+        self.proxima = wx.Button(self.painel_resultados, label="Próxima página")
         paginas.Add(self.anterior, 0, wx.RIGHT, 8)
         paginas.Add(self.proxima)
-        sizer.Add(paginas, 0, wx.ALL, 8)
-        self.status = wx.TextCtrl(self, value="Pronto para pesquisar.",
+        resultados_sizer.Add(paginas, 0, wx.ALL, 8)
+        self.status = wx.TextCtrl(self.painel_resultados, value="Pronto para pesquisar.",
                                   style=wx.TE_READONLY, name="Status da operação de livros")
-        sizer.Add(self.status, 0, wx.EXPAND | wx.ALL, 8)
-        self.progresso = wx.Gauge(self, range=100, name="Progresso do download do livro")
+        resultados_sizer.Add(self.status, 0, wx.EXPAND | wx.ALL, 8)
+        self.progresso = wx.Gauge(self.painel_resultados, range=100, name="Progresso do download do livro")
         self.progresso.Hide()
-        sizer.Add(self.progresso, 0, wx.EXPAND | wx.LEFT | wx.RIGHT | wx.BOTTOM, 8)
+        resultados_sizer.Add(self.progresso, 0, wx.EXPAND | wx.LEFT | wx.RIGHT | wx.BOTTOM, 8)
         botoes = wx.BoxSizer(wx.HORIZONTAL)
-        self.btn_historico = wx.Button(self, label="&Histórico de downloads")
-        self.btn_saude = wx.Button(self, label="&Verificar fontes")
-        self.cancelar = wx.Button(self, label="Cancelar operação")
-        self.fechar = wx.Button(self, wx.ID_CANCEL, label="Fechar")
-        for botao in (self.btn_historico, self.btn_saude, self.cancelar, self.fechar):
+        self.cancelar = wx.Button(self.painel_resultados, label="Cancelar operação")
+        self.voltar = wx.Button(self.painel_resultados, label="&Voltar à pesquisa")
+        for botao in (self.cancelar, self.voltar):
             botoes.Add(botao, 0, wx.RIGHT, 8)
-        sizer.Add(botoes, 0, wx.ALL, 8)
+        resultados_sizer.Add(botoes, 0, wx.ALL, 8)
+        self.painel_resultados.SetSizer(resultados_sizer)
+        self.painel_resultados.Hide()
+        sizer.Add(self.painel_resultados, 1, wx.EXPAND)
         self.SetSizer(sizer)
         self.pesquisar.Bind(wx.EVT_BUTTON, self.on_pesquisar)
         self.termo.Bind(wx.EVT_TEXT_ENTER, self.on_pesquisar)
@@ -165,12 +179,24 @@ class BooksDialog(wx.Dialog):
         self.cancelar.Bind(wx.EVT_BUTTON, self.on_cancelar)
         self.btn_historico.Bind(wx.EVT_BUTTON, self.on_historico)
         self.btn_saude.Bind(wx.EVT_BUTTON, self.on_verificar_fontes)
+        self.voltar.Bind(wx.EVT_BUTTON, self.on_voltar_pesquisa)
         self.fechar.Bind(wx.EVT_BUTTON, self.on_fechar)
         self.Bind(wx.EVT_CLOSE, self.on_fechar)
         self.Bind(wx.EVT_CHAR_HOOK, self.on_tecla)
         self.sons.vincular(self)
         self._ocupacao(False)
         self.CenterOnParent()
+        self.termo.SetFocus()
+
+    def _mostrar_tela(self, resultados):
+        self.painel_busca.Show(not resultados)
+        self.painel_resultados.Show(resultados)
+        self.Layout()
+
+    def on_voltar_pesquisa(self, event=None):
+        if self.ocupado:
+            return
+        self._mostrar_tela(False)
         self.termo.SetFocus()
 
     def _ocupacao(self, ocupado):
@@ -180,6 +206,7 @@ class BooksDialog(wx.Dialog):
         self.anterior.Enable(not ocupado and self.consulta is not None and self.pagina > 0)
         self.proxima.Enable(not ocupado and self.tem_proxima)
         self.cancelar.Enable(ocupado)
+        self.voltar.Enable(not ocupado)
         if ocupado:
             self.cancelar.SetFocus()
 
@@ -234,6 +261,7 @@ class BooksDialog(wx.Dialog):
     def _buscar_pagina(self, pagina):
         if self.ocupado or self.consulta is None:
             return
+        self._mostrar_tela(True)
         termo, formato = self.consulta
         self.status.SetValue(f"Pesquisando em {self.fonte_escolha.GetStringSelection()}, página {pagina + 1}...")
         parciais = []
@@ -390,6 +418,7 @@ class BooksDialog(wx.Dialog):
     def on_verificar_fontes(self, event):
         if self.ocupado:
             return
+        self._mostrar_tela(True)
         self.status.SetValue("Verificando as fontes. Aguarde...")
 
         def mostrar(estados):
@@ -435,6 +464,7 @@ class BooksDialog(wx.Dialog):
         tecla = event.GetKeyCode()
         foco = wx.Window.FindFocus()
         if event.ControlDown() and tecla in (ord("F"), ord("f")):
+            self._mostrar_tela(False)
             self.termo.SetFocus()
             self.termo.SelectAll()
             return
@@ -454,7 +484,10 @@ class BooksDialog(wx.Dialog):
             else:
                 self.on_pesquisar(event)
         elif tecla == wx.WXK_ESCAPE:
-            self.on_fechar(event)
+            if self.painel_resultados.IsShown() and not self.ocupado:
+                self.on_voltar_pesquisa()
+            else:
+                self.on_fechar(event)
         else:
             event.Skip()
 

@@ -99,7 +99,7 @@ class BooksGuiTests(unittest.TestCase):
         from gui.books_dialog import BooksDialog
         dialogo = BooksDialog(None, sons=Mock())
         try:
-            filhos = dialogo.GetChildren()
+            filhos = dialogo.painel_busca.GetChildren()
             self.assertLess(filhos.index(dialogo.termo), filhos.index(dialogo.fonte_escolha))
         finally:
             dialogo.Destroy()
@@ -133,6 +133,34 @@ class BooksGuiTests(unittest.TestCase):
         try:
             dialogo.on_tecla(evento)
             wx.Yield()
+            self.assertIs(wx.Window.FindFocus(), dialogo.termo)
+        finally:
+            dialogo.Destroy()
+
+    def test_pesquisa_esconde_formulario_e_exibe_apenas_resultados(self):
+        from gui.books_dialog import BooksDialog
+        dialogo = BooksDialog(None, sons=Mock())
+        try:
+            dialogo.termo.SetValue("dom casmurro")
+            dialogo._executar = Mock()
+            dialogo.on_pesquisar(None)
+            self.assertFalse(dialogo.painel_busca.IsShown())
+            self.assertTrue(dialogo.painel_resultados.IsShown())
+        finally:
+            dialogo.Destroy()
+
+    def test_voltar_da_lista_reexibe_pesquisa_sem_perder_termo(self):
+        import wx
+        from gui.books_dialog import BooksDialog
+        dialogo = BooksDialog(None, sons=Mock())
+        try:
+            dialogo.termo.SetValue("capitu")
+            dialogo._mostrar_tela(True)
+            dialogo.on_voltar_pesquisa()
+            wx.Yield()
+            self.assertTrue(dialogo.painel_busca.IsShown())
+            self.assertFalse(dialogo.painel_resultados.IsShown())
+            self.assertEqual(dialogo.termo.GetValue(), "capitu")
             self.assertIs(wx.Window.FindFocus(), dialogo.termo)
         finally:
             dialogo.Destroy()

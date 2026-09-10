@@ -42,6 +42,10 @@ demanda. O histórico guarda até 50 downloads existentes e permite abrir o livr
 ou sua pasta. A tela de detalhes informa fonte, formato, autor e idioma quando o
 catálogo fornece esses dados, além de permitir copiar a sinopse.
 
+Ao iniciar uma consulta, o formulário de pesquisa desaparece e a janela mostra
+somente o andamento, a lista e suas ações. **Voltar à pesquisa** ou Escape retorna
+ao formulário sem apagar o termo digitado. O histórico abre em sua própria janela.
+
 Atalhos da janela de livros: `Ctrl+F` volta à pesquisa, `Ctrl+D` baixa o item
 selecionado, `Ctrl+H` abre o histórico e `F5` repete a pesquisa.
 
