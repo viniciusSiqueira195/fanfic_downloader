@@ -8,6 +8,7 @@ MIMES = {"epub": "application/epub+zip", "txt": "text/plain", "pdf": "applicatio
 
 
 class Gutenberg:
+    nome = "Project Gutenberg"
     def __init__(self, http=None):
         self.http = http or requests
 
@@ -46,7 +47,9 @@ class Gutenberg:
                     if autores:
                         titulo += " — " + autores
                     sinopse = "\n\n".join(str(s).strip() for s in item.get("summaries", []) if str(s).strip())
-                    livros.append(Livro(titulo, url, formato, "Project Gutenberg", sinopse))
+                    idiomas = ", ".join(item.get("languages", []))
+                    livros.append(Livro(titulo, url, formato, "Project Gutenberg", sinopse,
+                                        autores, idiomas))
                 break
         return PaginaLivros(livros, bool(dados.get("next")))
 

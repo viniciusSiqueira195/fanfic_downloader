@@ -12,6 +12,8 @@ class Livro:
     formato: str
     origem: str = "Visionvox"
     sinopse: str = ""
+    autor: str = ""
+    idioma: str = ""
 
 
 @dataclass(frozen=True)

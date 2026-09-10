@@ -27,6 +27,16 @@ class PreferencesTests(unittest.TestCase):
                 app.salvar_config("TXT", "outra pasta", False)
                 self.assertEqual(app.carregar_config()["pasta_livros"], pasta)
 
+    def test_historico_de_livros_persiste_e_e_limitado(self):
+        from gui import app
+        with tempfile.TemporaryDirectory() as pasta:
+            with patch.object(app, "CONFIG_FILE", str(Path(pasta) / "config.json")):
+                historico = [{"titulo": str(i), "caminho": str(i)} for i in range(55)]
+                app.salvar_config("EPUB", "", False, historico_livros=historico)
+                salvo = app.carregar_config()["historico_livros"]
+                self.assertEqual(len(salvo), 50)
+                self.assertEqual(salvo[0]["titulo"], "5")
+
     def test_configuracao_tem_caminho_absoluto(self):
         from gui.app import CONFIG_FILE
         self.assertTrue(Path(CONFIG_FILE).is_absolute())

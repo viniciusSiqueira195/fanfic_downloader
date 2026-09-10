@@ -1,10 +1,12 @@
 """Interface nativa de livros; rede e arquivos ficam no pacote books."""
+import os
 import threading
+from pathlib import Path
 
 import wx
 
 from books.download import DownloadCancelado, ErroPasta, baixar_livro, validar_pasta
-from books.sources import FONTES
+from books.sources import FONTES, TodasFontes
 from gui.sounds import FeedbackSonoro
 
 
@@ -23,8 +25,54 @@ class SinopseDialog(wx.Dialog):
         self.texto.SetFocus()
 
 
+class HistoricoDialog(wx.Dialog):
+    def __init__(self, parent, historico):
+        super().__init__(parent, title="Histórico de livros", size=(620, 420),
+                         style=wx.DEFAULT_DIALOG_STYLE | wx.RESIZE_BORDER)
+        self.historico = [item for item in reversed(historico)
+                          if Path(item.get("caminho", "")).is_file()]
+        sizer = wx.BoxSizer(wx.VERTICAL)
+        self.lista = wx.ListBox(self, choices=[item.get("titulo", Path(item["caminho"]).name)
+                                               for item in self.historico],
+                                name="Livros baixados")
+        sizer.Add(self.lista, 1, wx.EXPAND | wx.ALL, 8)
+        botoes = wx.BoxSizer(wx.HORIZONTAL)
+        abrir = wx.Button(self, label="Abrir livro")
+        pasta = wx.Button(self, label="Abrir pasta")
+        fechar = wx.Button(self, wx.ID_OK, label="Fechar")
+        for botao in (abrir, pasta, fechar):
+            botoes.Add(botao, 0, wx.RIGHT, 8)
+        sizer.Add(botoes, 0, wx.ALL, 8)
+        self.SetSizer(sizer)
+        abrir.Bind(wx.EVT_BUTTON, self.on_abrir)
+        pasta.Bind(wx.EVT_BUTTON, self.on_pasta)
+        self.lista.Bind(wx.EVT_LISTBOX_DCLICK, self.on_abrir)
+        if self.historico:
+            self.lista.SetSelection(0)
+            self.lista.SetFocus()
+        else:
+            self.lista.Set(["Nenhum livro baixado ainda."])
+            fechar.SetFocus()
+
+    def _caminho(self):
+        indice = self.lista.GetSelection()
+        return None if indice == wx.NOT_FOUND or indice >= len(self.historico) else Path(
+            self.historico[indice]["caminho"])
+
+    def on_abrir(self, event):
+        caminho = self._caminho()
+        if caminho:
+            os.startfile(caminho)
+
+    def on_pasta(self, event):
+        caminho = self._caminho()
+        if caminho:
+            os.startfile(caminho.parent)
+
+
 class BooksDialog(wx.Dialog):
-    def __init__(self, parent, pasta="", sons=None, ao_escolher_pasta=None):
+    def __init__(self, parent, pasta="", sons=None, ao_escolher_pasta=None,
+                 historico=None, ao_baixar=None):
         super().__init__(parent, title="Baixar livros", size=(650, 720),
                          style=wx.DEFAULT_DIALOG_STYLE | wx.RESIZE_BORDER)
         self.sons = sons or FeedbackSonoro()
@@ -38,6 +86,8 @@ class BooksDialog(wx.Dialog):
         self.ultima_pasta = ""
         self.pasta_salva = pasta
         self.ao_escolher_pasta = ao_escolher_pasta
+        self.historico = list(historico or [])
+        self.ao_baixar = ao_baixar
         sizer = wx.BoxSizer(wx.VERTICAL)
         explicacao = wx.TextCtrl(self, value=(
             "Digite o título ou autor e escolha uma fonte, ou pesquise em todas. O Visionvox é destinado "
@@ -73,10 +123,14 @@ class BooksDialog(wx.Dialog):
         self.status = wx.TextCtrl(self, value="Pronto para pesquisar.",
                                   style=wx.TE_READONLY, name="Status da operação de livros")
         sizer.Add(self.status, 0, wx.EXPAND | wx.ALL, 8)
+        self.progresso = wx.Gauge(self, range=100, name="Progresso do download do livro")
+        self.progresso.Hide()
+        sizer.Add(self.progresso, 0, wx.EXPAND | wx.LEFT | wx.RIGHT | wx.BOTTOM, 8)
         botoes = wx.BoxSizer(wx.HORIZONTAL)
+        self.btn_historico = wx.Button(self, label="&Histórico de downloads")
         self.cancelar = wx.Button(self, label="Cancelar operação")
         self.fechar = wx.Button(self, wx.ID_CANCEL, label="Fechar")
-        for botao in (self.cancelar, self.fechar):
+        for botao in (self.btn_historico, self.cancelar, self.fechar):
             botoes.Add(botao, 0, wx.RIGHT, 8)
         sizer.Add(botoes, 0, wx.ALL, 8)
         self.SetSizer(sizer)
@@ -88,6 +142,7 @@ class BooksDialog(wx.Dialog):
         self.anterior.Bind(wx.EVT_BUTTON, lambda e: self._buscar_pagina(self.pagina - 1))
         self.proxima.Bind(wx.EVT_BUTTON, lambda e: self._buscar_pagina(self.pagina + 1))
         self.cancelar.Bind(wx.EVT_BUTTON, self.on_cancelar)
+        self.btn_historico.Bind(wx.EVT_BUTTON, self.on_historico)
         self.fechar.Bind(wx.EVT_BUTTON, self.on_fechar)
         self.Bind(wx.EVT_CLOSE, self.on_fechar)
         self.Bind(wx.EVT_CHAR_HOOK, self.on_tecla)
@@ -160,8 +215,20 @@ class BooksDialog(wx.Dialog):
         termo, formato = self.consulta
         self.status.SetValue(f"Pesquisando em {self.fonte_escolha.GetStringSelection()}, página {pagina + 1}...")
 
+        def atualizar_fonte(nome, estado, quantidade):
+            if estado == "concluída":
+                texto = f"{nome} respondeu com {quantidade} resultados. Aguardando as demais fontes..."
+            elif estado == "falhou":
+                texto = f"{nome} não respondeu. A pesquisa continua nas demais fontes..."
+            else:
+                return
+            wx.CallAfter(self.status.SetValue, texto)
+
         def buscar():
-            livros = self.fonte.buscar_pagina(termo, formato, pagina)
+            if isinstance(self.fonte, TodasFontes):
+                livros = self.fonte.buscar_pagina(termo, formato, pagina, atualizar_fonte)
+            else:
+                livros = self.fonte.buscar_pagina(termo, formato, pagina)
             if self.cancel_event.is_set():
                 raise DownloadCancelado()
             return livros
@@ -171,7 +238,7 @@ class BooksDialog(wx.Dialog):
             self.tem_proxima = resultado.tem_proxima
             self.pagina = pagina
             self.livros = livros
-            self.resultados.Set([f"{livro.titulo} — {livro.origem}" for livro in livros])
+            self.resultados.Set([self._rotulo_livro(livro) for livro in livros])
             self.status.SetValue(
                 f"Página {pagina + 1}: {len(livros)} livros encontrados.{resultado.aviso}"
             )
@@ -186,6 +253,13 @@ class BooksDialog(wx.Dialog):
         # Leva o leitor de tela à confirmação da busca sem bloquear a janela.
         # _executar dá foco ao botão Cancelar, então esta chamada precisa vir depois.
         self.status.SetFocus()
+
+    @staticmethod
+    def _rotulo_livro(livro):
+        detalhes = [livro.origem, livro.formato.upper()]
+        if livro.idioma:
+            detalhes.append(f"idioma {livro.idioma}")
+        return f"{livro.titulo} — " + " — ".join(detalhes)
 
     def _selecionar_pasta(self):
         pasta_inicial = self.pasta_salva if self.pasta_salva and wx.DirExists(self.pasta_salva) else ""
@@ -231,14 +305,40 @@ class BooksDialog(wx.Dialog):
                 self.resultados.SetFocus()
                 return
         self.status.SetValue("Baixando livro. Aguarde ou cancele a operação.")
+        self.progresso.SetValue(0)
+        self.progresso.Show()
+        self.Layout()
+
+        ultimo_anunciado = [-10]
+
+        def atualizar_progresso(recebido, total):
+            porcentagem = int(recebido * 100 / total) if total else 0
+            wx.CallAfter(self.progresso.SetValue, porcentagem)
+            marco = porcentagem // 10 * 10
+            if total and marco >= ultimo_anunciado[0] + 10:
+                ultimo_anunciado[0] = marco
+                wx.CallAfter(self.status.SetValue,
+                             f"Baixando {livro.titulo}: {porcentagem}% concluído.")
 
         def concluido(caminho):
             self.ultima_pasta = str(caminho.parent)
             self.status.SetValue(f"Livro salvo em {caminho}")
+            self.progresso.SetValue(100)
+            registro = {"titulo": livro.titulo, "caminho": str(caminho),
+                        "origem": livro.origem, "formato": livro.formato}
+            self.historico = [item for item in self.historico
+                              if item.get("caminho") != str(caminho)] + [registro]
+            if self.ao_baixar:
+                self.ao_baixar(registro)
             wx.MessageBox(f"Livro salvo em:\n{caminho}", "Download concluído", parent=self)
             self.resultados.SetFocus()
 
-        self._executar(lambda: baixar_livro(livro, pasta, self.cancel_event), concluido)
+        self._executar(lambda: baixar_livro(
+            livro, pasta, self.cancel_event, progresso=atualizar_progresso), concluido)
+
+    def on_historico(self, event):
+        with HistoricoDialog(self, self.historico) as dialogo:
+            dialogo.ShowModal()
 
     def on_sinopse(self, event):
         livro = self._livro_selecionado()

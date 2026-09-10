@@ -36,6 +36,7 @@ def extrair_livros(html):
 
 
 class Visionvox:
+    nome = "Visionvox"
     def __init__(self, http=None):
         self.http = http or requests
 

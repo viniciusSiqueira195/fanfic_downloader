@@ -30,13 +30,15 @@ def carregar_config():
     return {"formato": "PDF", "pasta": "", "verificar_atualizacoes": False, "ultima_versao_lida": ""}
 
 def salvar_config(formato, pasta, verificar_atualizacoes, ultima_versao_lida="", pasta_livros=None,
-                  sons_navegacao=None):
+                  sons_navegacao=None, historico_livros=None):
     try:
         anterior = carregar_config()
         sons_navegacao = (anterior.get("sons_navegacao", True)
                           if sons_navegacao is None else sons_navegacao)
         pasta_livros = (anterior.get("pasta_livros", "")
                         if pasta_livros is None else pasta_livros)
+        historico_livros = (anterior.get("historico_livros", [])
+                            if historico_livros is None else historico_livros)
         with open(CONFIG_FILE, 'w', encoding='utf-8') as f:
             json.dump(
                 {
@@ -46,6 +48,7 @@ def salvar_config(formato, pasta, verificar_atualizacoes, ultima_versao_lida="",
                     "ultima_versao_lida": ultima_versao_lida,
                     "pasta_livros": pasta_livros,
                     "sons_navegacao": sons_navegacao,
+                    "historico_livros": historico_livros[-50:],
                 },
                 f,
             )
@@ -456,7 +459,9 @@ class MainFrame(wx.Frame):
             self._mostrar_painel(self.panel_menu_fanfics)
         elif opcao == "Baixar livros":
             with BooksDialog(self, self.config.get("pasta_livros", self.config.get("pasta", "")),
-                             sons=self.sons, ao_escolher_pasta=self._definir_pasta_livros) as dialogo:
+                             sons=self.sons, ao_escolher_pasta=self._definir_pasta_livros,
+                             historico=self.config.get("historico_livros", []),
+                             ao_baixar=self._registrar_download_livro) as dialogo:
                 dialogo.ShowModal()
                 if dialogo.ultima_pasta:
                     self.config["pasta_livros"] = dialogo.ultima_pasta
@@ -501,6 +506,13 @@ class MainFrame(wx.Frame):
         self.config["pasta_livros"] = pasta
         self._salvar_preferencias()
 
+    def _registrar_download_livro(self, registro):
+        historico = [item for item in self.config.get("historico_livros", [])
+                     if item.get("caminho") != registro["caminho"]]
+        historico.append(registro)
+        self.config["historico_livros"] = historico[-50:]
+        self._salvar_preferencias()
+
     def on_procurar(self, event):
         dlg = wx.DirDialog(self, "Escolha onde salvar", style=wx.DD_DEFAULT_STYLE)
 
@@ -519,6 +531,7 @@ class MainFrame(wx.Frame):
             self.config.get("ultima_versao_lida", ""),
             pasta_livros=self.config.get("pasta_livros", ""),
             sons_navegacao=bool(self.config.get("sons_navegacao", True)),
+            historico_livros=self.config.get("historico_livros", []),
         )
 
     def _mostrar_painel_download(self, status, tempo, porcentagem, botao_cancelar_ativo, texto_botao_cancelar):
