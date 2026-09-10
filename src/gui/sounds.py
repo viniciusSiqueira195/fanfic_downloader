@@ -8,6 +8,7 @@ import wx.adv
 
 
 ARQUIVOS = {
+    "abrir": "startup.wav",
     "navegar": "navigate.wav",
     "confirmar": "confirm.wav",
 }

@@ -10,5 +10,6 @@ This content is free to use in personal, educational and commercial projects.
 Attribution to Kenney is appreciated but not required.
 
 Files used by Fanfic Downloader:
+- Audio/open_001.ogg, converted to startup.wav (PCM WAV)
 - Audio/select_001.ogg, converted to navigate.wav (PCM WAV)
 - Audio/confirmation_001.ogg, converted to confirm.wav (PCM WAV)

@@ -45,7 +45,7 @@ Na lista de livros, Enter inicia o download do resultado selecionado; no campo d
 pesquisa, Enter pesquisa. O áudio toca sem bloquear a interface e não substitui os
 nomes, mensagens ou estados dos controles. Para desativar, abra **Configurações**,
 desmarque **Sons suaves de navegação e confirmação** e escolha **Salvar**.
-Os sons de navegação e confirmação vêm do pacote profissional Interface Sounds,
+Os sons de abertura, navegação e confirmação vêm do pacote profissional Interface Sounds,
 criado pela Kenney e publicado sob licença CC0. Os arquivos usados estão incluídos
 no aplicativo e não dependem do esquema sonoro do Windows.
 

@@ -19,6 +19,7 @@ class SoundsTests(unittest.TestCase):
         from gui.sounds import FeedbackSonoro, caminho_som
         self.assertTrue(caminho_som("navegar").is_file())
         self.assertTrue(caminho_som("confirmar").is_file())
+        self.assertTrue(caminho_som("abrir").is_file())
         with patch("gui.sounds.wx.adv.Sound") as classe_som:
             som = classe_som.return_value
             som.IsOk.return_value = True

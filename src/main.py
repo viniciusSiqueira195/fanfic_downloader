@@ -8,6 +8,7 @@ def main():
     app = wx.App(False)
     frame = MainFrame()
     frame.Show()
+    frame.sons.tocar("abrir")
     app.MainLoop()
 
 if __name__ == "__main__":
