@@ -19,15 +19,21 @@ dependências Python, sozinha, não comprova que o navegador esteja preparado.
 
 ## Livros: escolha da fonte
 
-No menu principal, escolha **Baixar livros** e selecione **Visionvox** ou
-**Project Gutenberg** no campo “Fonte da pesquisa”. Pesquise título ou autor,
-escolha EPUB, TXT ou PDF, selecione um resultado e informe uma pasta existente.
+No menu principal, escolha **Baixar livros**. Digite o título ou autor e, no
+controle seguinte, selecione **Todas as fontes**, **Visionvox** ou
+**Project Gutenberg**. Depois escolha EPUB, TXT ou PDF e pesquise.
 A pesquisa tem páginas; use os botões de página anterior e próxima para navegar.
 O acervo Visionvox é destinado a pessoas com deficiência visual.
 O Gutenberg reúne principalmente clássicos em vários idiomas, pesquisados pela
 [API independente Gutendex](https://gutendex.com/). EPUB e TXT são as opções mais
 comuns; um livro pode não existir no formato selecionado. A troca de fonte limpa
 os resultados anteriores e mantém o termo para uma nova pesquisa.
+
+Na lista de resultados, Enter, Shift+F10, a tecla de menu ou o clique direito
+abrem as ações **Baixar**, **Ler sinopse** e **Escolher outra pasta para
+downloads**. A sinopse aparece em uma janela de texto navegável. Ao baixar, o
+aplicativo usa a pasta salva; se não houver uma pasta válida, pede a escolha
+naquele momento e a grava imediatamente nas preferências.
 
 Os arquivos são preservados no formato original, com limite de 100 MB. Um arquivo
 existente com o mesmo nome não é substituído. O cancelamento pode aguardar o timeout
@@ -41,8 +47,8 @@ projeto, problemas conhecidos e pesquisa inicial das fontes.
 ## Sons de navegação
 
 Os menus e a janela de livros oferecem tons curtos e suaves ao navegar e confirmar.
-Na lista de livros, Enter inicia o download do resultado selecionado; no campo de
-pesquisa, Enter pesquisa. O áudio toca sem bloquear a interface e não substitui os
+Na lista de livros, Enter abre o menu de ações; no campo de pesquisa, Enter pesquisa.
+O áudio toca sem bloquear a interface e não substitui os
 nomes, mensagens ou estados dos controles. Para desativar, abra **Configurações**,
 desmarque **Sons suaves de navegação e confirmação** e escolha **Salvar**.
 Os sons de abertura, navegação e confirmação vêm do pacote profissional Interface Sounds,

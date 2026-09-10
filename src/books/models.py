@@ -11,9 +11,11 @@ class Livro:
     url: str
     formato: str
     origem: str = "Visionvox"
+    sinopse: str = ""
 
 
 @dataclass(frozen=True)
 class PaginaLivros:
     livros: list[Livro]
     tem_proxima: bool
+    aviso: str = ""

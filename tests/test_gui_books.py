@@ -31,7 +31,6 @@ class BooksGuiTests(unittest.TestCase):
             dialogo.on_fonte(None)
             self.assertIsInstance(dialogo.fonte, Gutenberg)
             self.assertEqual(dialogo.resultados.GetCount(), 0)
-            self.assertFalse(dialogo.baixar.IsEnabled())
             self.assertFalse(dialogo.proxima.IsEnabled())
             self.assertIsNone(dialogo.consulta)
         finally:
@@ -54,8 +53,54 @@ class BooksGuiTests(unittest.TestCase):
                 time.sleep(0.01)
             self.assertFalse(dialogo.ocupado)
             self.assertEqual(dialogo.resultados.GetCount(), 1)
-            self.assertTrue(dialogo.baixar.IsEnabled())
             self.assertFalse(dialogo.proxima.IsEnabled())
             dialogo.fonte.buscar_pagina.assert_called_once_with("teste", "epub", 0)
+        finally:
+            dialogo.Destroy()
+
+    def test_enter_na_lista_abre_menu_de_acoes(self):
+        import wx
+        from gui.books_dialog import BooksDialog
+        from books.models import Livro
+        from unittest.mock import patch
+        dialogo = BooksDialog(None, sons=Mock())
+        try:
+            dialogo.livros = [Livro("Teste", "https://visionvox.net/a.epub", "epub")]
+            dialogo.resultados.Set(["Teste"])
+            dialogo.resultados.SetSelection(0)
+            dialogo.on_menu_acoes = Mock()
+            evento = Mock()
+            evento.GetKeyCode.return_value = wx.WXK_RETURN
+            with patch("gui.books_dialog.wx.Window.FindFocus", return_value=dialogo.resultados):
+                dialogo.on_tecla(evento)
+            dialogo.on_menu_acoes.assert_called_once_with(evento)
+        finally:
+            dialogo.Destroy()
+
+    def test_campo_de_termo_vem_antes_da_fonte_na_ordem_de_tab(self):
+        from gui.books_dialog import BooksDialog
+        dialogo = BooksDialog(None, sons=Mock())
+        try:
+            filhos = dialogo.GetChildren()
+            self.assertLess(filhos.index(dialogo.termo), filhos.index(dialogo.fonte_escolha))
+        finally:
+            dialogo.Destroy()
+
+    def test_pasta_escolhida_e_persistida_somente_quando_necessaria(self):
+        import wx
+        from gui.books_dialog import BooksDialog
+        from unittest.mock import patch
+        salvar = Mock()
+        dialogo = BooksDialog(None, pasta="", sons=Mock(), ao_escolher_pasta=salvar)
+        seletor = Mock()
+        seletor.__enter__ = Mock(return_value=seletor)
+        seletor.__exit__ = Mock(return_value=False)
+        seletor.ShowModal.return_value = wx.ID_OK
+        seletor.GetPath.return_value = r"C:\Livros"
+        try:
+            with patch("gui.books_dialog.wx.DirDialog", return_value=seletor):
+                self.assertEqual(dialogo._selecionar_pasta(), r"C:\Livros")
+            salvar.assert_called_once_with(r"C:\Livros")
+            self.assertEqual(dialogo.pasta_salva, r"C:\Livros")
         finally:
             dialogo.Destroy()

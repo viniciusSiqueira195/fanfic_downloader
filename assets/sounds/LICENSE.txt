@@ -11,5 +11,5 @@ Attribution to Kenney is appreciated but not required.
 
 Files used by Fanfic Downloader:
 - Audio/open_001.ogg, converted to startup.wav (PCM WAV)
-- Audio/select_001.ogg, converted to navigate.wav (PCM WAV)
+- Audio/tick_002.ogg, converted to navigate.wav (PCM WAV, volume reduced)
 - Audio/confirmation_001.ogg, converted to confirm.wav (PCM WAV)

@@ -456,7 +456,7 @@ class MainFrame(wx.Frame):
             self._mostrar_painel(self.panel_menu_fanfics)
         elif opcao == "Baixar livros":
             with BooksDialog(self, self.config.get("pasta_livros", self.config.get("pasta", "")),
-                             sons=self.sons) as dialogo:
+                             sons=self.sons, ao_escolher_pasta=self._definir_pasta_livros) as dialogo:
                 dialogo.ShowModal()
                 if dialogo.ultima_pasta:
                     self.config["pasta_livros"] = dialogo.ultima_pasta
@@ -496,6 +496,10 @@ class MainFrame(wx.Frame):
             return
         self.config_frame = ConfigFrame(self)
         self.config_frame.Show()
+
+    def _definir_pasta_livros(self, pasta):
+        self.config["pasta_livros"] = pasta
+        self._salvar_preferencias()
 
     def on_procurar(self, event):
         dlg = wx.DirDialog(self, "Escolha onde salvar", style=wx.DD_DEFAULT_STYLE)

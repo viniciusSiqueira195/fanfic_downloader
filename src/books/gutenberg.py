@@ -45,6 +45,10 @@ class Gutenberg:
                     autores = ", ".join(a["name"] for a in item.get("authors", []) if a.get("name"))
                     if autores:
                         titulo += " — " + autores
-                    livros.append(Livro(titulo, url, formato, "Project Gutenberg"))
+                    sinopse = "\n\n".join(str(s).strip() for s in item.get("summaries", []) if str(s).strip())
+                    livros.append(Livro(titulo, url, formato, "Project Gutenberg", sinopse))
                 break
         return PaginaLivros(livros, bool(dados.get("next")))
+
+    def obter_sinopse(self, livro):
+        return livro.sinopse

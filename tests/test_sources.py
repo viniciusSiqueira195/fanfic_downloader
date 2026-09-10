@@ -6,6 +6,8 @@ from unittest.mock import Mock
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
 from books.gutenberg import Gutenberg
+from books.models import Livro, PaginaLivros
+from books.sources import TodasFontes
 from books.urls import validar_url_download
 from books.visionvox import Visionvox
 
@@ -18,12 +20,14 @@ class SourcesTests(unittest.TestCase):
     def test_gutenberg_busca_paginada_por_titulo_autor_e_formato(self):
         self.resposta.json.return_value = {"results": [{
             "title": "Dom Casmurro", "authors": [{"name": "Machado de Assis"}],
-            "formats": {"application/epub+zip": "https://www.gutenberg.org/ebooks/55752.epub3.images"}
+            "formats": {"application/epub+zip": "https://www.gutenberg.org/ebooks/55752.epub3.images"},
+            "summaries": ["Bentinho conta sua história e suas dúvidas sobre Capitu."]
         }], "next": "https://gutendex.com/books/?page=3"}
         pagina = Gutenberg(self.http).buscar_pagina(" Machado ", "epub", 1)
         self.assertTrue(pagina.tem_proxima)
         self.assertEqual(pagina.livros[0].origem, "Project Gutenberg")
         self.assertIn("Machado de Assis", pagina.livros[0].titulo)
+        self.assertIn("Capitu", pagina.livros[0].sinopse)
         self.assertEqual(self.http.get.call_args.kwargs["params"],
                          {"search": "Machado", "mime_type": "application/epub+zip", "page": 2})
 
@@ -65,3 +69,25 @@ class SourcesTests(unittest.TestCase):
         self.resposta.content = b'<input name="busca"><a href="busca.php?num_page=1">2</a>'
         self.assertTrue(Visionvox(self.http).buscar_pagina("teste").tem_proxima)
         self.assertFalse(Visionvox(self.http).buscar_pagina("teste", pagina=1).tem_proxima)
+
+    def test_visionvox_busca_sinopse_sob_demanda(self):
+        busca_vazia = Mock()
+        busca_vazia.content = b'<p>Nenhuma sinopse</p>'
+        busca = Mock()
+        busca.content = '<a href="Sinopse.php?sinopse=602">Machado de Assis - Dom Casmurro</a>'.encode()
+        detalhe = Mock()
+        detalhe.content = '<p>Autor:</p><p>Machado</p><p>Sinopse:</p><p>Capitu tem olhos de ressaca.</p><p>Copiar sinopse</p>'.encode()
+        self.http.get.side_effect = [busca_vazia, busca, detalhe]
+        livro = Livro("Machado de Assis Dom Casmurro.epub", "https://visionvox.net/a.epub", "epub")
+        self.assertEqual(Visionvox(self.http).obter_sinopse(livro), "Capitu tem olhos de ressaca.")
+        self.assertEqual(self.http.get.call_count, 3)
+
+    def test_todas_as_fontes_unem_resultados_e_preservam_origem(self):
+        visionvox, gutenberg = Mock(), Mock()
+        visionvox.buscar_pagina.return_value = PaginaLivros(
+            [Livro("Livro A", "https://visionvox.net/a.epub", "epub")], False)
+        gutenberg.buscar_pagina.return_value = PaginaLivros(
+            [Livro("Livro B", "https://www.gutenberg.org/b.epub", "epub", "Project Gutenberg")], True)
+        pagina = TodasFontes([visionvox, gutenberg]).buscar_pagina("livro")
+        self.assertEqual([l.origem for l in pagina.livros], ["Visionvox", "Project Gutenberg"])
+        self.assertTrue(pagina.tem_proxima)

@@ -6,6 +6,7 @@ import requests
 from bs4 import BeautifulSoup
 from books.models import Livro, PaginaLivros, FORMATOS, HEADERS
 from books.urls import validar_url_download
+from scrapers.search_relevance import normalizar, termos_significativos
 
 BASE_URL = "https://visionvox.com.br/"
 
@@ -68,3 +69,45 @@ class Visionvox:
                 tem_proxima = True
                 break
         return PaginaLivros(livros, tem_proxima)
+
+    def obter_sinopse(self, livro):
+        termo = livro.titulo.rsplit(".", 1)[0].replace("_", " ")
+        tokens = termos_significativos(termo)
+        consultas = [termo]
+        # Os nomes de arquivo do acervo juntam autor e título. O catálogo de
+        # sinopses não encontra essa string inteira, então tenta sufixos que
+        # normalmente correspondem ao título sem inventar um corte de autor.
+        palavras = termo.split()
+        consultas.extend(" ".join(palavras[-quantidade:])
+                         for quantidade in range(min(4, len(palavras) - 1), 0, -1))
+        candidatos = []
+        for consulta in dict.fromkeys(consultas):
+            resposta = self.http.get(
+                urljoin(BASE_URL, "sinopses/index.php"), params={"query": consulta},
+                headers=HEADERS, timeout=(10, 30),
+            )
+            resposta.raise_for_status()
+            soup = BeautifulSoup(resposta.content.decode("utf-8"), "html.parser")
+            for link in soup.find_all("a", href=True):
+                if "sinopse=" not in link["href"].lower():
+                    continue
+                texto = normalizar(link.get_text(" ", strip=True))
+                pontos = sum(token in texto.split() for token in tokens)
+                candidatos.append((pontos, link["href"]))
+            if candidatos:
+                break
+        if not candidatos:
+            return ""
+        _, endereco = max(candidatos, key=lambda item: item[0])
+        resposta = self.http.get(urljoin(BASE_URL + "sinopses/", endereco),
+                                 headers=HEADERS, timeout=(10, 30))
+        resposta.raise_for_status()
+        linhas = [linha.strip() for linha in BeautifulSoup(
+            resposta.content.decode("utf-8"), "html.parser").get_text("\n").splitlines()
+                  if linha.strip()]
+        try:
+            inicio = linhas.index("Sinopse:") + 1
+            fim = linhas.index("Copiar sinopse", inicio)
+        except ValueError:
+            return ""
+        return "\n\n".join(linhas[inicio:fim]).strip()
