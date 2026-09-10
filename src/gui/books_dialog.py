@@ -183,6 +183,9 @@ class BooksDialog(wx.Dialog):
                 self.status.SetFocus()
 
         self._executar(buscar, mostrar)
+        # Leva o leitor de tela à confirmação da busca sem bloquear a janela.
+        # _executar dá foco ao botão Cancelar, então esta chamada precisa vir depois.
+        self.status.SetFocus()
 
     def _selecionar_pasta(self):
         pasta_inicial = self.pasta_salva if self.pasta_salva and wx.DirExists(self.pasta_salva) else ""

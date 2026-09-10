@@ -58,6 +58,24 @@ class BooksGuiTests(unittest.TestCase):
         finally:
             dialogo.Destroy()
 
+    def test_busca_foca_status_enquanto_worker_roda(self):
+        import wx
+        from gui.books_dialog import BooksDialog
+        dialogo = BooksDialog(None, sons=Mock())
+        try:
+            dialogo.termo.SetValue("dom casmurro")
+            dialogo._executar = Mock()
+            dialogo.on_pesquisar(None)
+            wx.Yield()
+            self.assertEqual(
+                dialogo.status.GetValue(),
+                "Pesquisando em Todas as fontes, página 1...",
+            )
+            self.assertIs(wx.Window.FindFocus(), dialogo.status)
+            dialogo._executar.assert_called_once()
+        finally:
+            dialogo.Destroy()
+
     def test_enter_na_lista_abre_menu_de_acoes(self):
         import wx
         from gui.books_dialog import BooksDialog
